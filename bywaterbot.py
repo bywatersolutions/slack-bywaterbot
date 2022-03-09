@@ -34,10 +34,10 @@ elif quote.startswith("FACT: "):
     quote = quote.replace("FACT: ", "Fun Fact! ", 1);
 elif quote.startswith("Koha sys pref: "):
     quote = quote.replace("Koha sys pref: ", "Koha SysPref Quiz! Do you know what this setting does?", 1);
-#app.client.chat_postMessage(
-#    channel="#general",
-#    text=quote,
-#)
+app.client.chat_postMessage(
+    channel="#general",
+    text=quote,
+)
 
 # Get all Slack users and make a dictionary of name ( e.g. display name ) to user id
 name_to_id = {}
