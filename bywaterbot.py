@@ -16,7 +16,7 @@ pp = pprint.PrettyPrinter(indent=2)
 
 # Load quotes
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
-quote = get_quote( url=quotes_csv_url )
+quote = get_quote(url=quotes_csv_url)
 app.client.chat_postMessage(
     channel="#general",
     text=quote,
@@ -27,18 +27,19 @@ name_to_id = get_name_to_id_mapping(app=app)
 
 # Load karma pep talks from csv
 karma_csv_url = os.environ.get("KARMA_CSV_URL")
-karma1, karma2, karma3, karma4 = get_karma_pep_talks( url=karma_csv_url )
+karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
+
 
 # Handle Karma
 @app.message(re.compile("(\S*)(\s?\+\+\s?)(.*)?"))
 def karma_regex(say, context):
-    user = context['matches'][0];
+    user = context["matches"][0]
 
     is_user = False
 
-    if ( user.startswith("<@" ) ):
+    if user.startswith("<@"):
         is_user = True
-    elif ( not user.startswith("<@") ) and user.lower() in name_to_id:
+    elif (not user.startswith("<@")) and user.lower() in name_to_id:
         user = f"<@{name_to_id[user.lower()]}>"
         is_user = True
 
@@ -47,33 +48,34 @@ def karma_regex(say, context):
             text=f"{user} {random.choice(karma1)} {random.choice(karma2)} {random.choice(karma3)} {random.choice(karma4)}"
         )
     else:
-        say(
-            text=f"Who doesn't love {user}, right?"
-        )
+        say(text=f"Who doesn't love {user}, right?")
+
 
 @app.message("hello")
 def message_hello(message, say):
     # say() sends a message to the channel where the event was triggered
     say(f"Hey there <@{message['user']}>!")
 
+
 @app.message("Refresh Karma")
 def refresh_karma(message, say):
     say(f"Sure thing!!")
-    karma1, karma2, karma3, karma4 = get_karma_pep_talks( url=karma_csv_url )
+    karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
     say(f"Done!")
+
 
 # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
 @app.message(re.compile("(bug|bz)\s*([0-9]+)"))
 def bug_regex(say, context):
     # regular expression matches are inside of context.matches
     # pp.pprint(context)
-    bug = context['matches'][1]
+    bug = context["matches"][1]
     url = requests.get(f"https://bugs.koha-community.org/bugzilla3/rest/bug/{bug}")
     text = url.text
     data = json.loads(text)
 
-    summary = data['bugs'][0]['summary']
-    status = data['bugs'][0]['status']
+    summary = data["bugs"][0]["summary"]
+    status = data["bugs"][0]["status"]
     bugzilla = f"https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id={bug}"
 
     print(f"BUG: {bug}")
@@ -83,50 +85,39 @@ def bug_regex(say, context):
     blocks = [
         {
             "type": "header",
-            "text": {
-                "type": "plain_text",
-                "text": f"Bug {bug}: {summary}"
-              }
+            "text": {"type": "plain_text", "text": f"Bug {bug}: {summary}"},
         },
         {
             "type": "section",
-            "fields": [
-                {
-                    "type": "mrkdwn",
-                    "text": f"*Status*\n{status}"
-                }
-            ]
+            "fields": [{"type": "mrkdwn", "text": f"*Status*\n{status}"}],
         },
         {
             "type": "actions",
             "elements": [
                 {
                     "type": "button",
-                    "text": {
-                        "type": "plain_text",
-                        "text": f"View bug {bug}"
-
-                    },
+                    "text": {"type": "plain_text", "text": f"View bug {bug}"},
                     "style": "primary",
                     "value": f"View bug {bug}",
-                    "url":  f"{bugzilla}"
+                    "url": f"{bugzilla}",
                 }
-            ]
-        }
+            ],
+        },
     ]
     say(
         blocks=blocks,
-        text=f"Koha community <{bugzilla}|bug {bug}>: _{summary}_ [*{status}*]"
+        text=f"Koha community <{bugzilla}|bug {bug}>: _{summary}_ [*{status}*]",
     )
+
 
 # ByWater "Koha branches that contain this bug" tool
 @app.message(re.compile("(branches)\s*(\d+)\s*(\w*)"))
 def bug_regex(say, context):
-    bug = context['matches'][1]
-    shortname = context['matches'][2] or "bywater"
+    bug = context["matches"][1]
+    shortname = context["matches"][2] or "bywater"
     print(f"BUG: {bug}, SHORTNAME: {shortname}")
 
-    say( text=f"Looking for bug {bug} on {shortname} branches..." )
+    say(text=f"Looking for bug {bug} on {shortname} branches...")
 
     url = f"http://find-branches-by-bugs.bwsdocker1.bywatersolutions.com/{bug}/{shortname}"
     print(f"URL: {url}")
@@ -139,24 +130,25 @@ def bug_regex(say, context):
         text = f"I found bug {bug} in the following branches:\n"
         for d in data:
             text += f"* {d}\n"
-        say( text=text )
+        say(text=text)
     else:
-        say( text=f"I could not find bug {bug} in any branches for {shortname}!" )
+        say(text=f"I could not find bug {bug} in any branches for {shortname}!")
+
 
 # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
 @app.message(re.compile("(ticket|rt)\s*([0-9]+)"))
 def bug_regex(say, context):
-    ticket_id = context['matches'][1]
+    ticket_id = context["matches"][1]
 
     rt_url = f"https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket_id}"
 
-    say(
-        text=f"<{rt_url}|RT Ticket {ticket_id}>"
-    )
+    say(text=f"<{rt_url}|RT Ticket {ticket_id}>")
+
 
 @app.event("message")
 def handle_message_events(body, logger):
     logger.info(body)
+
 
 # Start your app
 if __name__ == "__main__":
