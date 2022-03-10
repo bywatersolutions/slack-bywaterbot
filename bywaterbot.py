@@ -4,10 +4,13 @@ import pprint
 import random
 import re
 import requests
+import rt
 import urllib.request
 from bot_functions import get_name_to_id_mapping, get_karma_pep_talks, get_quote
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+print("ByWaterBot is starting up!")
 
 # Initializes your app with your bot token and socket mode handler
 slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
@@ -120,6 +123,57 @@ def bug_regex(say, context):
     )
 
 
+# RT links, recognizes "ticket 1234" and "rt 1234"
+@app.message(re.compile("(ticket|rt)\s*([0-9]+)"))
+def bug_regex(say, context):
+    ticket_id = context["matches"][1]
+
+    rt_user = os.environ.get("RT_USERNAME")
+    rt_pass = os.environ.get("RT_PASSWORD")
+
+    tracker = rt.Rt("https://ticket.bywatersolutions.com/REST/1.0/", rt_user, rt_pass)
+    tracker.login()
+
+    tickets = tracker.search(Queue=rt.ALL_QUEUES, raw_query="id='92579'")
+    subject = tickets[0]["Subject"]
+    owner = tickets[0]["Owner"]
+    queue = tickets[0]["Queue"]
+
+    rt_url = f"https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket_id}"
+
+    blocks = [
+        {
+            "type": "header",
+            "text": {"type": "plain_text", "text": f"Ticket {ticket_id}: {subject}"},
+        },
+        {
+            "type": "section",
+            "fields": [
+                {"type": "mrkdwn", "text": f"*Owner*\n{owner}"},
+                {"type": "mrkdwn", "text": f"*Queue*\n{queue}"},
+            ],
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {"type": "plain_text", "text": f"View ticket {ticket_id}"},
+                    "style": "primary",
+                    "value": f"View ticket {ticket_id}",
+                    "url": f"{rt_url}",
+                }
+            ],
+        },
+    ]
+    say(
+        blocks=blocks,
+        text=f"<{rt_url}|Ticket {ticket_id}>: _{subject}_",
+    )
+
+    say(text=f"<{rt_url}|RT Ticket {ticket_id}>")
+
+
 # ByWater "Koha branches that contain this bug" tool
 @app.message(re.compile("(branches)\s*(\d+)\s*(\w*)"))
 def bug_regex(say, context):
@@ -143,16 +197,6 @@ def bug_regex(say, context):
         say(text=text)
     else:
         say(text=f"I could not find bug {bug} in any branches for {shortname}!")
-
-
-# Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
-@app.message(re.compile("(ticket|rt)\s*([0-9]+)"))
-def bug_regex(say, context):
-    ticket_id = context["matches"][1]
-
-    rt_url = f"https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket_id}"
-
-    say(text=f"<{rt_url}|RT Ticket {ticket_id}>")
 
 
 @app.event("message")
