@@ -10,6 +10,16 @@ It is a replacement for the older slack-bwsbot project
 
 ## Getting Started
 
+### Keywords and phrases
+
+This bot has a number of words and phrases it listens for
+
+* "hello" - Bot will say hi to you!
+* "bug 1234", "bz 1234" - Bot will provide a link and info to the Koha Bugzilla for that number
+* "ticket 1234", "rt 1234" - Bot will provide a link to the given ticket number
+* "branches 1234", "branches 1234 _shortname_" - Bot will tell you bug branches are on the bug for the given shortname ( defaults to "bywater" )
+* "Refresh Karma" - Bot will download the latest version of the pep talk data
+
 ### Dependencies
 
 * Python 3 and dependencies
