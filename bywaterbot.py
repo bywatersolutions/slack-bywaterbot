@@ -14,7 +14,7 @@ slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
 app = App(token=slack_bot_token)
 pp = pprint.PrettyPrinter(indent=2)
 
-# Load quotes
+# Give a quote on startup
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
 quote = get_quote(url=quotes_csv_url)
 app.client.chat_postMessage(
@@ -28,7 +28,6 @@ name_to_id = get_name_to_id_mapping(app=app)
 # Load karma pep talks from csv
 karma_csv_url = os.environ.get("KARMA_CSV_URL")
 karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
-
 
 # Handle Karma
 @app.message(re.compile("(\S*)(\s?\+\+\s?)(.*)?"))
@@ -55,6 +54,17 @@ def karma_regex(say, context):
 def message_hello(message, say):
     # say() sends a message to the channel where the event was triggered
     say(f"Hey there <@{message['user']}>!")
+
+
+@app.message("Quote Please")
+def say_quote(message, say):
+    quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
+    quote = get_quote(url=quotes_csv_url)
+    app.client.chat_postMessage(
+        channel="#general",
+        text=quote,
+    )
+    say(quote)
 
 
 @app.message("Refresh Karma")
