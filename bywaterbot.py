@@ -1,11 +1,11 @@
-import random
-import csv
-import os
-import re
-import pprint
-import requests
 import json
+import os
+import pprint
+import random
+import re
+import requests
 import urllib.request
+from bot_functions import get_name_to_id_mapping, get_karma_pep_talks, get_quote
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
@@ -16,55 +16,18 @@ pp = pprint.PrettyPrinter(indent=2)
 
 # Load quotes
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
-urllib.request.urlretrieve(quotes_csv_url, 'quotes.csv')
-quotes = []
-with open('quotes.csv') as csvfile: 
-    reader = csv.reader(csvfile, delimiter=',', quotechar='"') 
-    for row in reader:
-        if len(row[0]):
-            quotes.append(row[0])
-quote = random.choice(quotes)
-if quote.startswith("PQ: "):
-    quote = quote.replace("PQ: ", "Partner Quote: ", 1);
-elif quote.startswith("HAHA: "):
-    quote = quote.replace("HAHA: ", "", 1);
-elif quote.startswith("MOVE: "):
-    quote = quote.replace("MOVE: ", "Get up and move! ", 1);
-elif quote.startswith("FACT: "):
-    quote = quote.replace("FACT: ", "Fun Fact! ", 1);
-elif quote.startswith("Koha sys pref: "):
-    quote = quote.replace("Koha sys pref: ", "Koha SysPref Quiz! Do you know what this setting does?", 1);
+quote = get_quote( url=quotes_csv_url )
 app.client.chat_postMessage(
     channel="#general",
     text=quote,
 )
 
 # Get all Slack users and make a dictionary of name ( e.g. display name ) to user id
-name_to_id = {}
-resp = app.client.users_list()
-users = resp['members']
-for u in users:
-    name_to_id[u["profile"]["display_name"].lower()] = u["id"]
-    if "name" in u and not u["name"].lower() in name_to_id:
-        name_to_id[u["name"].lower()] = u["id"]
-    if "real_name" in u and not u["real_name"].lower() in name_to_id:
-        name_to_id[u["real_name"].lower()] = u["id"]
+name_to_id = get_name_to_id_mapping(app=app)
 
 # Load karma pep talks from csv
 karma_csv_url = os.environ.get("KARMA_CSV_URL")
-urllib.request.urlretrieve(karma_csv_url, 'karma.csv')
-karma1, karma2, karma3, karma4 = [], [], [], []
-with open('karma.csv') as csvfile: 
-    reader = csv.reader(csvfile, delimiter=',', quotechar='"') 
-    for row in reader:
-        if len(row[0]):
-            karma1.append(row[0])
-        if len(row[1]):
-            karma2.append(row[1])
-        if len(row[2]):
-            karma3.append(row[2])
-        if len(row[3]):
-            karma4.append(row[3])
+karma1, karma2, karma3, karma4 = get_karma_pep_talks( url=karma_csv_url )
 
 # Handle Karma
 @app.message(re.compile("(\S*)(\s?\+\+\s?)(.*)?"))
@@ -92,6 +55,12 @@ def karma_regex(say, context):
 def message_hello(message, say):
     # say() sends a message to the channel where the event was triggered
     say(f"Hey there <@{message['user']}>!")
+
+@app.message("Refresh Karma")
+def refresh_karma(message, say):
+    say(f"Sure thing!!")
+    karma1, karma2, karma3, karma4 = get_karma_pep_talks( url=karma_csv_url )
+    say(f"Done!")
 
 # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
 @app.message(re.compile("(bug|bz)\s*([0-9]+)"))
