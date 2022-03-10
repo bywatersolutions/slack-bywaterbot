@@ -171,8 +171,6 @@ def bug_regex(say, context):
         text=f"<{rt_url}|Ticket {ticket_id}>: _{subject}_",
     )
 
-    say(text=f"<{rt_url}|RT Ticket {ticket_id}>")
-
 
 # ByWater "Koha branches that contain this bug" tool
 @app.message(re.compile("(branches)\s*(\d+)\s*(\w*)"))
