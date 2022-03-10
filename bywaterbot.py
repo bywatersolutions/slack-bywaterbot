@@ -46,7 +46,8 @@ def karma_regex(say, context):
         is_user = True
 
     if is_user:
-        say(
+        app.client.chat_postMessage(
+            channel="#kudos",
             text=f"{user} {random.choice(karma1)} {random.choice(karma2)} {random.choice(karma3)} {random.choice(karma4)}"
         )
     else:
