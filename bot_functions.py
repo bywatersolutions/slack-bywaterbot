@@ -66,3 +66,20 @@ def get_quote(url):
         )
 
     return quote
+
+
+def get_putdowns():
+    putdowns = [
+        "you’re a gray sprinkle on a rainbow cupcake.",
+        "you are more disappointing than an unsalted pretzel.",
+        "I’ll never forget the first time we met. But I’ll keep trying.",
+        "It’s impossible to underestimate you.",
+        "I thought of you today. It reminded me to take out the trash.",
+        "you are like a cloud. When you disappear, it’s a beautiful day.",
+        "you have miles to go before you reach mediocre.",
+        "I was today years old when I realized I didn’t like you.",
+        "the jerk store called. They’re running out of you.",
+        "life is full of disappointments, and I just added you to the list.",
+        "I treasure the time I don’t spend with you.",
+    ]
+    return putdowns

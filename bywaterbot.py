@@ -6,7 +6,12 @@ import re
 import requests
 import rt
 import urllib.request
-from bot_functions import get_name_to_id_mapping, get_karma_pep_talks, get_quote
+from bot_functions import (
+    get_name_to_id_mapping,
+    get_karma_pep_talks,
+    get_quote,
+    get_putdowns,
+)
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
@@ -32,6 +37,8 @@ name_to_id = get_name_to_id_mapping(app=app)
 karma_csv_url = os.environ.get("KARMA_CSV_URL")
 karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
 
+putdowns = get_putdowns()
+
 # Handle Karma
 @app.message(re.compile("(\S*)(\s?\+\+\s?)(.*)?"))
 def karma_regex(say, context):
@@ -48,10 +55,29 @@ def karma_regex(say, context):
     if is_user:
         app.client.chat_postMessage(
             channel="#kudos",
-            text=f"{user} {random.choice(karma1)} {random.choice(karma2)} {random.choice(karma3)} {random.choice(karma4)}"
+            text=f"{user} {random.choice(karma1)} {random.choice(karma2)} {random.choice(karma3)} {random.choice(karma4)}",
         )
     else:
         say(text=f"Who doesn't love {user}, right?")
+
+
+# Handle negative Karma
+@app.message(re.compile("(\S*)(\s?\-\-\s?)(.*)?"))
+def karma_regex(say, context):
+    user = context["matches"][0]
+
+    is_user = False
+
+    if user.startswith("<@"):
+        is_user = True
+    elif (not user.startswith("<@")) and user.lower() in name_to_id:
+        user = f"<@{name_to_id[user.lower()]}>"
+        is_user = True
+
+    if is_user:
+        say(text=f"If you can't say something nice, don't say anything at all.")
+    else:
+        say(text=f"{user}, {random.choice(putdowns)}")
 
 
 @app.message("hello")
