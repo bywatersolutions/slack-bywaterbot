@@ -161,7 +161,7 @@ def bug_regex(say, context):
     tracker = rt.Rt("https://ticket.bywatersolutions.com/REST/1.0/", rt_user, rt_pass)
     tracker.login()
 
-    tickets = tracker.search(Queue=rt.ALL_QUEUES, raw_query="id='92579'")
+    tickets = tracker.search(Queue=rt.ALL_QUEUES, raw_query=f"id='{ticket_id}'")
     subject = tickets[0]["Subject"]
     owner = tickets[0]["Owner"]
     queue = tickets[0]["Queue"]
