@@ -174,12 +174,16 @@ def bug_regex(say, context):
     i = 0
     requestors = tickets[0]["Requestors"]
     for r in requestors:
-        pp.pprint(r)
         if (i % 2) == 0:
             requestors1 = requestors1 + f"{r}\n"
         else:
             requestors2 = requestors2 + f"{r}\n"
         i += 1
+
+    if len(requestors2):
+        requestors2 = ".\n" + requestors2
+    else:
+        requestors2 = " "
 
     rt_url = f"https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket_id}"
 
@@ -194,7 +198,7 @@ def bug_regex(say, context):
                 {"type": "mrkdwn", "text": f"*Owner*\n{owner}"},
                 {"type": "mrkdwn", "text": f"*Queue*\n{queue}"},
                 {"type": "mrkdwn", "text": f"*Requestors*\n{requestors1}"},
-                {"type": "mrkdwn", "text": f".\n{requestors2}"},
+                {"type": "mrkdwn", "text": f"{requestors2}"},
             ],
         },
         {
