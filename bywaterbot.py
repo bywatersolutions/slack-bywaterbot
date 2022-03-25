@@ -162,9 +162,24 @@ def bug_regex(say, context):
     tracker.login()
 
     tickets = tracker.search(Queue=rt.ALL_QUEUES, raw_query=f"id='{ticket_id}'")
+
+    ticket = tracker.get_ticket(ticket_id=ticket_id)
+
     subject = tickets[0]["Subject"]
     owner = tickets[0]["Owner"]
     queue = tickets[0]["Queue"]
+
+    requestors1 = ""
+    requestors2 = ""
+    i = 0
+    requestors = tickets[0]["Requestors"]
+    for r in requestors:
+        pp.pprint(r)
+        if (i % 2) == 0:
+            requestors1 = requestors1 + f"{r}\n"
+        else:
+            requestors2 = requestors2 + f"{r}\n"
+        i += 1
 
     rt_url = f"https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket_id}"
 
@@ -178,6 +193,8 @@ def bug_regex(say, context):
             "fields": [
                 {"type": "mrkdwn", "text": f"*Owner*\n{owner}"},
                 {"type": "mrkdwn", "text": f"*Queue*\n{queue}"},
+                {"type": "mrkdwn", "text": f"*Requestors*\n{requestors1}"},
+                {"type": "mrkdwn", "text": f".\n{requestors2}"},
             ],
         },
         {
