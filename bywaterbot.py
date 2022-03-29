@@ -39,11 +39,22 @@ karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
 
 putdowns = get_putdowns()
 
-# Handle Karma
+# Handle group karma e.g. (@khall @kidclamp @tcohen)++
+@app.message(re.compile("\((.+)\)\+\+"))
+def group_karma_regex(say, context):
+    users = context["matches"][0]
+    for user in users.split():
+        give_karma(user, say, context)
+
+
+# Handle individual karma
 @app.message(re.compile("(\S*)(\s?\+\+\s?)(.*)?"))
 def karma_regex(say, context):
     user = context["matches"][0]
+    give_karma(user, say, context)
 
+
+def give_karma(user, say, context):
     is_user = False
 
     if user.startswith("<@"):
