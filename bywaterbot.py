@@ -97,6 +97,18 @@ def message_hello(message, say):
     say(f"Hey there <@{message['user']}>!")
 
 
+@app.message("wow")
+def message_hello(message, say):
+    blocks = [
+        {
+            "type": "image",
+            "image_url": "https://bywater.solutions/wow",
+            "alt_text": "Just imagine Owen Wilson saying 'Wow'.",
+        }
+    ]
+    say(blocks=blocks)
+
+
 @app.message("Quote Please")
 def say_quote(message, say):
     quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
