@@ -12,6 +12,9 @@ from bot_functions import (
     get_quote,
     get_putdowns,
 )
+from calendar_functions import (
+    get_weekend_duty
+)
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 

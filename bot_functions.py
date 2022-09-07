@@ -2,7 +2,6 @@ import csv
 import random
 import urllib.request
 
-
 def get_name_to_id_mapping(app):
     name_to_id = {}
     resp = app.client.users_list()
