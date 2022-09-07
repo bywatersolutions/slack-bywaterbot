@@ -1,5 +1,6 @@
 import datetime
 import os.path
+import re
 
 from datetime import timedelta
 from google.auth.transport.requests import Request
@@ -10,6 +11,8 @@ from googleapiclient.discovery import build
 def main():
     event = get_weekend_duty()
     print("EVENT:", event)
+    user = get_user(event)
+    print("USER: ", user)
 
 def get_weekend_duty():
     SCOPES = ['https://www.googleapis.com/auth/calendar.readonly']
@@ -71,9 +74,16 @@ def get_weekend_duty():
                 print("FOUND IT", start, end, event['summary'])
                 return(event)
 
-
     except HttpError as error:
         print('An error occurred: %s' % error)
+
+def get_user(event):
+    summary = event['summary']
+
+    result = re.search(r"(.+) help desk", summary)
+    print("USER: ", result.group(1))
+
+    return result.group(1)
 
 
 if __name__ == '__main__':

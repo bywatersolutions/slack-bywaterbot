@@ -6,6 +6,7 @@ import re
 import requests
 import rt
 import urllib.request
+from twilio.rest import Client
 from bot_functions import (
     get_name_to_id_mapping,
     get_karma_pep_talks,
@@ -13,17 +14,30 @@ from bot_functions import (
     get_putdowns,
 )
 from calendar_functions import (
-    get_weekend_duty
+    get_weekend_duty,
+    get_user,
 )
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+pp = pprint.PrettyPrinter(indent=2)
 
 print("ByWaterBot is starting up!")
 
 # Initializes your app with your bot token and socket mode handler
 slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
 app = App(token=slack_bot_token)
-pp = pprint.PrettyPrinter(indent=2)
+
+# Load json data
+bywaterbot_data = None
+if os.environ.get("BYWATER_BOT_DATA"):
+    bywaterbot_data = os.envriron.get("BYWATER_BT_DATA")
+    print("FOUND BYWATERBOT DATA IN ENV")
+else:
+    f = open('data.json')
+    bywaterbot_data = json.load(f)
+    print("FOUND BYWATERBOT DATA IN FILE")
+pp.pprint(bywaterbot_data);
 
 # Give a quote on startup
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
@@ -269,6 +283,26 @@ def bug_regex(say, context):
         say(text=text)
     else:
         say(text=f"I could not find bug {bug} in any branches for {shortname}!")
+
+# ByWater "Koha branches that contain this bug" tool
+@app.message(re.compile("Ticket Created: (\d+) - (.*)"))
+def bug_regex(say, context):
+    ticket = context["matches"][0]
+    description = context["matches"][1]
+
+    print(f"TICKET: {ticket}, DESC: {description}")
+
+    event = get_weekend_duty()
+    if event:
+        print(event)
+        user = get_user(event)
+        print("FOUND USER: ", user)
+        transports = bywaterbot_data["users"][user]
+        if transports["sms"]
+            sms = transports["sms"]
+            say(text=f"I've alerted {user} via {sms}!")
+        if len(transports) == 0:
+            say(text=f"{user} has not opted to receive alerts from me!")
 
 
 @app.event("message")
