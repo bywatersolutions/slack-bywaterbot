@@ -24,10 +24,17 @@ pp = pprint.PrettyPrinter(indent=2)
 
 print("ByWaterBot is starting up!")
 
+# Write google credentials to file if stored in environment variable
+if os.environ["CREDENTIALS_JSON"]:
+    f = open("credentials.json", "w")
+    f.write(os.environ["CREDENTIALS_JSON"])
+    f.close()
+
 # Initializes your app with your bot token and socket mode handler
 slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
 app = App(token=slack_bot_token)
 
+# Set up twilio client
 account_sid = os.environ['TWILIO_ACCOUNT_SID']
 auth_token = os.environ['TWILIO_AUTH_TOKEN']
 twilio_phone = os.environ['TWILIO_PHONE']
