@@ -28,6 +28,11 @@ print("ByWaterBot is starting up!")
 slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
 app = App(token=slack_bot_token)
 
+account_sid = os.environ['TWILIO_ACCOUNT_SID']
+auth_token = os.environ['TWILIO_AUTH_TOKEN']
+twilio_phone = os.environ['TWILIO_PHONE']
+twilio_client = Client(account_sid, auth_token)
+
 # Load json data
 bywaterbot_data = None
 if os.environ.get("BYWATER_BOT_DATA"):
@@ -298,9 +303,19 @@ def bug_regex(say, context):
         user = get_user(event)
         print("FOUND USER: ", user)
         transports = bywaterbot_data["users"][user]
-        if transports["sms"]
+        if transports["sms"]:
             sms = transports["sms"]
-            say(text=f"I've alerted {user} via {sms}!")
+            say(text=f"I've alerted {user} via sms!")
+
+            body = f"New ticket {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
+            message = twilio_client.messages \
+                .create(
+                     body=body,
+                     from_=twilio_phone,
+                     to=sms
+                 )
+            print(message.sid)
+
         if len(transports) == 0:
             say(text=f"{user} has not opted to receive alerts from me!")
 
