@@ -43,7 +43,7 @@ twilio_client = Client(account_sid, auth_token)
 # Load json data
 bywaterbot_data = None
 if os.environ.get("BYWATER_BOT_DATA"):
-    bywaterbot_data = os.envriron.get("BYWATER_BT_DATA")
+    bywaterbot_data = os.environ.get("BYWATER_BOT_DATA")
     print("FOUND BYWATERBOT DATA IN ENV")
 else:
     f = open('data.json')
