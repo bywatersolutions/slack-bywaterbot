@@ -25,11 +25,11 @@ pp = pprint.PrettyPrinter(indent=2)
 print("ByWaterBot is starting up!")
 
 # Write google credentials to file if stored in environment variable
-if os.environ["CREDENTIALS_JSON"]:
+if "CREDENTIALS_JSON" in os.environ:
     f = open("credentials.json", "w")
     f.write(os.environ["CREDENTIALS_JSON"])
     f.close()
-if os.environ["TOKEN_JSON"]:
+if "TOKEN_JSON" in os.environ:
     f = open("token.json", "w")
     f.write(os.environ["TOKEN_JSON"])
     f.close()
