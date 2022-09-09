@@ -78,12 +78,13 @@ def get_weekend_duty():
         print('An error occurred: %s' % error)
 
 def get_user(event):
-    summary = event['summary']
+    if event:
+        summary = event['summary']
 
-    result = re.search(r"(.+) help desk", summary)
-    print("USER: ", result.group(1))
+        result = re.search(r"(.+) help desk", summary)
+        print("USER: ", result.group(1))
 
-    return result.group(1)
+        return result.group(1)
 
 
 if __name__ == '__main__':
