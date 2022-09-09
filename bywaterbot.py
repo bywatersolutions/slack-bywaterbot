@@ -123,6 +123,7 @@ def karma_regex(say, context):
 @app.message("hello")
 def message_hello(message, say):
     # say() sends a message to the channel where the event was triggered
+    print(f"Hey there <@{message['user']}>!")
     say(f"Hey there <@{message['user']}>!")
 
 
