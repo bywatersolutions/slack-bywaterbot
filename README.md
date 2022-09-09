@@ -39,6 +39,11 @@ This project uses a number of environment variables to function:
 * SLACK_APP_TOKEN - Slack app token
 * QUOTES_CSV_URL - URL to a CSV of quotes
 * KARMA_CSV_URL - URL to a CSV of karma comment possibilities
+* CREDENTIALS_JSON - Download crendentials.json from Google, put contents in this variable
+* TOKEN_JSON - Run `python calendar_functions.py` on the server, input given URL in lynx, copy contents of token.json into this variable
+* TWILIO_ACCOUNT_SID - SID for the Twilio account to be used ( provided by Twilio )
+* TWILIO_AUTH_TOKEN - Authentication token for the Twilio account ot be used ( provided by Twilio )
+* TWILIO_PHONE - Outgoing Twilio phone number ( e.g. +11234567890 )
 
 Check out https://slack.dev/bolt-python/tutorial/getting-started to see
 how to set up the Slack tokens.
@@ -62,6 +67,9 @@ how to set up the Slack tokens.
 * im:history
 * mpim:history
 * users:read
+
+##### Google Scopes
+* calendar, read-only
 
 ### Executing program
 
