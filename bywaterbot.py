@@ -29,6 +29,10 @@ if os.environ["CREDENTIALS_JSON"]:
     f = open("credentials.json", "w")
     f.write(os.environ["CREDENTIALS_JSON"])
     f.close()
+if os.environ["TOKEN_JSON"]:
+    f = open("token.json", "w")
+    f.write(os.environ["TOKEN_JSON"])
+    f.close()
 
 # Initializes your app with your bot token and socket mode handler
 slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
