@@ -39,9 +39,9 @@ slack_bot_token = os.environ.get("SLACK_BOT_TOKEN")
 app = App(token=slack_bot_token)
 
 # Set up twilio client
-account_sid = os.environ['TWILIO_ACCOUNT_SID']
-auth_token = os.environ['TWILIO_AUTH_TOKEN']
-twilio_phone = os.environ['TWILIO_PHONE']
+account_sid = os.environ["TWILIO_ACCOUNT_SID"]
+auth_token = os.environ["TWILIO_AUTH_TOKEN"]
+twilio_phone = os.environ["TWILIO_PHONE"]
 twilio_client = Client(account_sid, auth_token)
 
 # Load json data
@@ -50,10 +50,10 @@ if os.environ.get("BYWATER_BOT_DATA"):
     bywaterbot_data = json.loads(os.environ.get("BYWATER_BOT_DATA"))
     print("FOUND BYWATERBOT DATA IN ENV")
 else:
-    f = open('data.json')
+    f = open("data.json")
     bywaterbot_data = json.load(f)
     print("FOUND BYWATERBOT DATA IN FILE")
-pp.pprint(bywaterbot_data);
+pp.pprint(bywaterbot_data)
 
 # Give a quote on startup
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
@@ -301,6 +301,7 @@ def bug_regex(say, context):
     else:
         say(text=f"I could not find bug {bug} in any branches for {shortname}!")
 
+
 # ByWater "Koha branches that contain this bug" tool
 @app.message(re.compile("Ticket Created: (\d+) - (.*)"))
 def bug_regex(say, context):
@@ -320,12 +321,9 @@ def bug_regex(say, context):
             say(text=f"I've alerted {user} via sms!")
 
             body = f"New ticket {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
-            message = twilio_client.messages \
-                .create(
-                     body=body,
-                     from_=twilio_phone,
-                     to=sms
-                 )
+            message = twilio_client.messages.create(
+                body=body, from_=twilio_phone, to=sms
+            )
             print(message.sid)
 
         if len(transports) == 0:
