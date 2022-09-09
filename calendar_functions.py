@@ -69,8 +69,8 @@ def get_weekend_duty():
         for event in events:
             start = event['start'].get('dateTime', event['start'].get('date'))
             end = event['end'].get('dateTime', event['end'].get('date'))
-            if start <= today <= end:
-                print(f"Found event where start {start} <= today {today} <= end {end}");
+            if start <= today < end:
+                print(f"Found event where start {start} <= today {today} < end {end}");
                 current_event = event
                 print("FOUND EVENT: ", start, end, event['summary'])
                 return(event)
