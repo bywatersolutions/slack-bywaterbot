@@ -278,7 +278,7 @@ def bug_regex(say, context):
 
 
 # ByWater "Koha branches that contain this bug" tool
-@app.message(re.compile("(branches)\s*(\d+)\s*(\w*)"))
+@app.message(re.compile("(branches)\s*(\d+)\s*(\S*)"))
 def bug_regex(say, context):
     bug = context["matches"][1]
     shortname = context["matches"][2] or "bywater"
