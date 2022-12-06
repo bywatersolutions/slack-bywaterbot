@@ -286,7 +286,7 @@ def bug_regex(say, context):
 
     say(text=f"Looking for bug {bug} on {shortname} branches...")
 
-    url = f"https://find-branches-by-bugs-api.tools.bywatersolutions.com/{bug}/{shortname}"
+    url = f"https://find-branches-by-bugs.tools.bywatersolutions.com/{bug}/{shortname}"
     print(f"URL: {url}")
     res = requests.get(url)
     text = res.text
