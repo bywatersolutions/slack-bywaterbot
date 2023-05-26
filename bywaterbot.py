@@ -106,7 +106,7 @@ def give_karma(user, say, context):
 
 
 # Handle negative Karma
-@app.message(re.compile("(\S*)(\s?\-\-\s?)(.*)?"))
+@app.message(re.compile("^(\w+)(\-\-)"))
 def karma_regex(say, context):
     user = context["matches"][0]
 
