@@ -302,7 +302,7 @@ def bug_regex(say, context):
         say(text=f"I could not find bug {bug} in any branches for {shortname}!")
 
 
-# ByWater "Koha branches that contain this bug" tool
+# ByWater Weekend Updater, sends sms to person on weekend duty
 @app.message(re.compile("Ticket Created: (\d+) - (.*)"))
 def bug_regex(say, context):
     ticket = context["matches"][0]
