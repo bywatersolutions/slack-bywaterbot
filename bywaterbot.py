@@ -313,6 +313,9 @@ def bug_regex(say, context):
     event = get_weekend_duty()
     if event:
         print(event)
+        ## FIXME: We need to pass in bywaterbot_data["users"] and just have get_user look to see if the calendard
+        ## event containers the name of that user. Solves the problem of needing a specifc format for the calendar
+        ## event ( e.g. "Someones Name help desk" )
         user = get_user(event)
         print("FOUND USER: ", user)
         transports = bywaterbot_data["users"][user]
@@ -328,6 +331,49 @@ def bug_regex(say, context):
 
         if len(transports) == 0:
             say(text=f"{user} has not opted to receive alerts from me!")
+
+# Text someone from slack
+@app.message(re.compile("TEXT (.*)"))
+def bug_regex(say, context):
+    pp.pprint(context)
+    message = context["matches"][0]
+
+    print(f"MESSAGE: {message}")
+
+    sender = context['user_id']
+    try:
+        # Call the users.info method using the WebClient
+        response = app.client.users_info(
+            user=sender
+        )
+    except SlackApiError as e:
+        logger.error("Error fetching conversations: {}".format(e))
+    origin_user = response.data["user"]["real_name"]
+
+    destination_user_found = False
+    for user in bywaterbot_data["users"]:
+        print(f"LOOKING AT USER {user}")
+        if message.startswith(user):
+            message = message.replace(user,"",1)
+            transports = bywaterbot_data["users"][user]
+            sms = transports["sms"]
+
+            print(f"FOUND MATCHING USER {user}")
+
+            body = f"You have a message from {origin_user} via Slack: {message}"
+            print(body)
+            message = twilio_client.messages.create(
+                body=body, from_=twilio_phone, to=sms
+            )
+            print(message.sid)
+            destination_user_found = True
+            break
+
+    if destination_user_found == True:
+        say("Message sent!")
+    else:
+        say("I was unable to find someone matching that user.")
+
 
 
 @app.event("message")
