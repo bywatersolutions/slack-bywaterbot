@@ -91,7 +91,7 @@ def get_user(event):
     if event:
         summary = event["summary"]
 
-        result = re.search(r"(.+) help desk", summary)
+        result = re.search("(.+) (Weekend)? help desk", summary, re.IGNORECASE)
         print("USER: ", result.group(1))
 
         return result.group(1)
