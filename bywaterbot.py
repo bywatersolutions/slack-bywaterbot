@@ -131,7 +131,7 @@ def message_hello(message, say):
     say(f"Hey there <@{message['user']}>!")
 
 
-@app.message("wow")
+@app.message("^wow")
 def message_hello(message, say):
     blocks = [
         {
