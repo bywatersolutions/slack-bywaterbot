@@ -284,7 +284,7 @@ def bug_regex(say, context):
     shortname = context["matches"][2] or "bywater"
     print(f"BUG: {bug}, SHORTNAME: {shortname}")
 
-    say(text=f"Looking for bug {bug} on {shortname} branches...")
+    say(text=f"Looking for bug {bug} ( https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id={bug} ) on {shortname} branches...")
 
     url = f"https://find-branches-by-bugs.tools.bywatersolutions.com/{bug}/{shortname}"
     print(f"URL: {url}")
