@@ -303,12 +303,13 @@ def bug_regex(say, context):
 
 
 # ByWater Weekend Updater, sends sms to person on weekend duty
-@app.message(re.compile("Ticket Created: (\d+) - (.*)"))
+@app.message(re.compile("Ticket Created:\s+\[(.+)\]\s+(\d+)\s+-\s+(.*)"))
 def bug_regex(say, context):
-    ticket = context["matches"][0]
-    description = context["matches"][1]
+    queue = context["matches"][1]
+    ticket = context["matches"][1]
+    description = context["matches"][2]
 
-    print(f"TICKET: {ticket}, DESC: {description}")
+    print(f"TICKET: {ticket}, QUEUE: {queue}, DESC: {description}")
 
     event = get_weekend_duty()
     if event:
@@ -323,7 +324,7 @@ def bug_regex(say, context):
             sms = transports["sms"]
             say(text=f"I've alerted {user} via sms!")
 
-            body = f"New ticket {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
+            body = f"New {queue} ticket {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
             message = twilio_client.messages.create(
                 body=body, from_=twilio_phone, to=sms
             )
