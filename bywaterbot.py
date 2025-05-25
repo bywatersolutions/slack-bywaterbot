@@ -404,12 +404,31 @@ def handle_devops_fires(body, logger):
         return
 
     assignee = ""
+    text = ""
 
     # Check if this is a reaction event
     if event.get("type") == "reaction_added":
         reaction = event.get("reaction")
         print("REACTION: ", reaction)
         if reaction == "fire":
+            # Get the message text from the reaction
+            try:
+                message_ts = event.get("item", {}).get("ts")
+                if message_ts:
+                    response = app.client.conversations_history(
+                        channel=channel_id,
+                        inclusive=True,
+                        latest=message_ts,
+                        limit=1
+                    )
+                    messages = response.get("messages", [])
+                    if messages:
+                        text = messages[0].get("text", "")
+                        print(f"Found message text: {text}")
+            except Exception as e:
+                print(f"Error getting message text: {e}
+                text = ""  # Default empty text if we can't get it
+            
             assignee = get_devops_fire_duty_asignee(app, channel_id)
 
     # Check for fire emoji in message text
