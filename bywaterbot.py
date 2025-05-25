@@ -12,6 +12,8 @@ from bot_functions import (
     get_karma_pep_talks,
     get_quote,
     get_putdowns,
+    get_channel_id_by_name,
+    get_devops_fire_duty_asignee,
 )
 from calendar_functions import (
     get_weekend_duty,
@@ -19,6 +21,8 @@ from calendar_functions import (
 )
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
+
+DEFAULT_DEVOPS_ASSIGNEE = "Kyle"
 
 pp = pprint.PrettyPrinter(indent=2)
 
@@ -62,6 +66,9 @@ app.client.chat_postMessage(
     channel="#general",
     text=quote,
 )
+
+devops_channel_id = get_channel_id_by_name(app=app, channel_name="devops")
+print(f"DEVOPS CHANNEL ID: {devops_channel_id}")
 
 # Get all Slack users and make a dictionary of name ( e.g. display name ) to user id
 name_to_id = get_name_to_id_mapping(app=app)
@@ -284,7 +291,9 @@ def bug_regex(say, context):
     shortname = context["matches"][2] or "bywater"
     print(f"BUG: {bug}, SHORTNAME: {shortname}")
 
-    say(text=f"Looking for bug {bug} ( https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id={bug} ) on {shortname} branches...")
+    say(
+        text=f"Looking for bug {bug} ( https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id={bug} ) on {shortname} branches..."
+    )
 
     url = f"https://find-branches-by-bugs.tools.bywatersolutions.com/{bug}/{shortname}"
     print(f"URL: {url}")
@@ -333,6 +342,7 @@ def bug_regex(say, context):
         if len(transports) == 0:
             say(text=f"{user} has not opted to receive alerts from me!")
 
+
 # Text someone from slack
 @app.message(re.compile("TEXT (.*)"))
 def bug_regex(say, context):
@@ -341,21 +351,19 @@ def bug_regex(say, context):
 
     print(f"MESSAGE: {message}")
 
-    sender = context['user_id']
+    sender = context["user_id"]
     try:
         # Call the users.info method using the WebClient
-        response = app.client.users_info(
-            user=sender
-        )
+        response = app.client.users_info(user=sender)
     except SlackApiError as e:
-        logger.error("Error fetching conversations: {}".format(e))
+        print("Error fetching conversations: {}".format(e))
     origin_user = response.data["user"]["real_name"]
 
     destination_user_found = False
     for user in bywaterbot_data["users"]:
         print(f"LOOKING AT USER {user}")
         if message.startswith(user):
-            message = message.replace(user,"",1)
+            message = message.replace(user, "", 1)
             transports = bywaterbot_data["users"][user]
             sms = transports["sms"]
 
@@ -376,10 +384,70 @@ def bug_regex(say, context):
         say("I was unable to find someone matching that user.")
 
 
+def handle_devops_fires(body, logger):
+    """
+    Monitor #devops channel for messages containing fire emoji or reactions with fire emoji.
+    When found, check the channel topic for a name using regex "is NAME".
+    """
+    event = body.get("event", {})
+
+    # For reactions, get the channel ID from the item field
+    if event.get("type") == "reaction_added":
+        channel_id = event.get("item", {}).get("channel")
+    else:
+        channel_id = event.get("channel")
+
+    print("CHANNEL ID: ", channel_id)
+
+    # Only process events in #devops channel
+    if channel_id != devops_channel_id:
+        return
+
+    assignee = ""
+
+    # Check if this is a reaction event
+    if event.get("type") == "reaction_added":
+        reaction = event.get("reaction")
+        print("REACTION: ", reaction)
+        if reaction == "fire":
+            assignee = get_devops_fire_duty_asignee(app, channel_id)
+
+    # Check for fire emoji in message text
+    text = event.get("text", "")
+    if ":fire:" in text:
+        assignee = get_devops_fire_duty_asignee(app, channel_id)
+
+    if assignee:
+        print(f"{assignee} is on duty for devops")
+
+        if assignee not in bywaterbot_data["users"]:
+            body = f"There is a fire in #devops assigned to {assignee}: {text}"
+            assignee = DEFAULT_DEVOPS_ASSIGNEE
+        else:  # User cannot be contacted
+            body = f"There is a fire in #devops: {text}"
+
+        transports = bywaterbot_data["users"][assignee]
+        print(f"TRANSPORTS: {transports}")
+        sms = transports["sms"]
+
+        print(f"BODY: {body}")
+        message = twilio_client.messages.create(body=body, from_=twilio_phone, to=sms)
+        print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
+
 
 @app.event("message")
 def handle_message_events(body, logger):
-    logger.info(body)
+    # print("Message event received")
+    # print("Event type:", body.get("event", {}).get("type"))
+    handle_devops_fires(body, logger)
+
+
+@app.event("reaction_added")
+def handle_reaction_events(body, logger):
+    # print("Reaction event received")
+    # print("Event type:", body.get("event", {}).get("type"))
+    # print("Full event:", body.get("event"))
+    handle_devops_fires(body, logger)
 
 
 # Start your app

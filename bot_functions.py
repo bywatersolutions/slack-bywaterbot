@@ -1,6 +1,46 @@
 import csv
 import random
+import re
 import urllib.request
+
+
+def get_devops_fire_duty_asignee(app, channel_id):
+    """
+    Get the channel topic and extract name using regex "is NAME"
+    """
+    try:
+        # Get channel info
+        channel_info = app.client.conversations_info(channel=channel_id)
+        topic = channel_info.get("channel", {}).get("topic", {}).get("value", "")
+        print(f"Topic: {topic}")
+
+        # Extract name using regex
+        name_match = re.search(r"is\s+(\w+\s*\w*)\n", topic)
+        if name_match:
+            name = name_match.group(1)
+            print(f"Found name in topic: {name}")
+            return name
+    except Exception as e:
+        print(f"Error processing channel topic: {e}")
+
+
+def get_channel_id_by_name(app, channel_name):
+    """
+    Get channel ID by channel name
+    """
+    try:
+        # Get all channels
+        result = app.client.conversations_list()
+        channels = result.get("channels", [])
+
+        # Find the channel by name
+        for channel in channels:
+            if channel.get("name", "") == channel_name:
+                return channel.get("id")
+        return None
+    except Exception as e:
+        print(f"Error getting channel ID: {e}")
+        return None
 
 
 def get_name_to_id_mapping(app):
