@@ -389,11 +389,11 @@ def handle_devops_fires(body, logger):
     Monitor #devops channel for messages containing fire emoji or reactions with fire emoji.
     When found, check the channel topic for a name using regex "is NAME".
     """
-    event = body.get("event", {})
+    event = body.get("event")
 
     # For reactions, get the channel ID from the item field
     if event.get("type") == "reaction_added":
-        channel_id = event.get("item", {}).get("channel")
+        channel_id = event.get("item").get("channel")
     else:
         channel_id = event.get("channel")
 
@@ -421,18 +421,18 @@ def handle_devops_fires(body, logger):
                         latest=message_ts,
                         limit=1
                     )
-                    messages = response.get("messages", [])
+                    messages = response.get("messages")
                     if messages:
-                        text = messages[0].get("text", "")
+                        text = messages[0].get("text")
                         print(f"Found message text: {text}")
             except Exception as e:
-                print(f"Error getting message text: {e}
+                print(f"Error getting message text: {e}")
                 text = ""  # Default empty text if we can't get it
             
             assignee = get_devops_fire_duty_asignee(app, channel_id)
 
     # Check for fire emoji in message text
-    text = event.get("text", "")
+    text = event.get("text")
     if ":fire:" in text:
         assignee = get_devops_fire_duty_asignee(app, channel_id)
 
