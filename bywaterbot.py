@@ -416,10 +416,7 @@ def handle_devops_fires(body, logger):
                 message_ts = event.get("item", {}).get("ts")
                 if message_ts:
                     response = app.client.conversations_history(
-                        channel=channel_id,
-                        inclusive=True,
-                        latest=message_ts,
-                        limit=1
+                        channel=channel_id, inclusive=True, latest=message_ts, limit=1
                     )
                     messages = response.get("messages")
                     if messages:
@@ -428,7 +425,7 @@ def handle_devops_fires(body, logger):
             except Exception as e:
                 print(f"Error getting message text: {e}")
                 text = ""  # Default empty text if we can't get it
-            
+
             assignee = get_devops_fire_duty_asignee(app, channel_id)
 
     # Check for fire emoji in message text
@@ -454,18 +451,8 @@ def handle_devops_fires(body, logger):
         print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
 
 
-@app.event("message")
-def handle_message_events(body, logger):
-    # print("Message event received")
-    # print("Event type:", body.get("event", {}).get("type"))
-    handle_devops_fires(body, logger)
-
-
 @app.event("reaction_added")
 def handle_reaction_events(body, logger):
-    # print("Reaction event received")
-    # print("Event type:", body.get("event", {}).get("type"))
-    # print("Full event:", body.get("event"))
     handle_devops_fires(body, logger)
 
 
