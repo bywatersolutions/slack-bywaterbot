@@ -428,11 +428,6 @@ def handle_devops_fires(body, logger):
 
             assignee = get_devops_fire_duty_asignee(app, channel_id)
 
-    # Check for fire emoji in message text
-    text = event.get("text")
-    if ":fire:" in text:
-        assignee = get_devops_fire_duty_asignee(app, channel_id)
-
     if assignee:
         print(f"{assignee} is on duty for devops")
 
