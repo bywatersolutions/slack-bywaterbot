@@ -312,7 +312,7 @@ def bug_regex(say, context):
 
 
 # ByWater Weekend Updater, sends sms to person on weekend duty
-@app.message(re.compile("Ticket Created:\s+\[(.+)\]\s+(\d+)\s+-\s+(.*)"))
+@app.message(re.compile("Ticket Created:\s+\*\[(.+)\]\*\s+(\d+)\s+-\s+(.*)"))
 def bug_regex(say, context):
     queue = context["matches"][1]
     ticket = context["matches"][1]
@@ -450,6 +450,10 @@ def handle_devops_fires(body, logger):
 def handle_reaction_events(body, logger):
     handle_devops_fires(body, logger)
 
+#@app.event("message")
+#def handle_message_events(body, logger):
+#    print("MESSAGE EVENT")
+#    print(body)
 
 # Start your app
 if __name__ == "__main__":
