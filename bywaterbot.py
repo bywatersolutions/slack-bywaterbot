@@ -110,7 +110,7 @@ def refresh_bywaterbot_data():
         print(f"Successfully refreshed bywaterbot_data at {datetime.now()}")
         return True
     except Exception as e:
-        print(f"Error refreshing bywaterbot_data: {e}")
+        print(f"Error refreshing bywaterbot_data at {datetime.now()}: {e}")
         return False
 
 
