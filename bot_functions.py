@@ -124,7 +124,7 @@ def get_name_to_id_mapping(app):
         if "real_name" in u and not u["real_name"].lower() in name_to_id:
             name_to_id[u["real_name"].lower()] = u["id"]
 
-        if "real_name" in u and ( "is_bot" not in u or not u["is_bot"]):
+        if "real_name" in u and ("is_bot" not in u or not u["is_bot"]):
             name_to_info[u["real_name"]] = u
     return name_to_id, name_to_info
 

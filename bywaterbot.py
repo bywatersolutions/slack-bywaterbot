@@ -60,20 +60,23 @@ auth_token = os.environ["TWILIO_AUTH_TOKEN"]
 twilio_phone = os.environ["TWILIO_PHONE"]
 twilio_client = Client(account_sid, auth_token)
 
+
 def load_bywaterbot_data():
     """Load bywaterbot_data from URL, environment variable, or local file."""
     data = None
     source = ""
-    
+
     # Try to load from URL first
-    if os.environ.get("BYWATER_BOT_DATA_URL") and os.environ.get("BYWATER_BOT_GITHUB_TOKEN"):
+    if os.environ.get("BYWATER_BOT_DATA_URL") and os.environ.get(
+        "BYWATER_BOT_GITHUB_TOKEN"
+    ):
         data = get_data_from_url(
-            os.environ.get("BYWATER_BOT_DATA_URL"), 
-            os.environ["BYWATER_BOT_GITHUB_TOKEN"]
+            os.environ.get("BYWATER_BOT_DATA_URL"),
+            os.environ["BYWATER_BOT_GITHUB_TOKEN"],
         )
         if data:
             source = "URL"
-    
+
     # Fall back to environment variable
     if not data and os.environ.get("BYWATER_BOT_DATA"):
         try:
@@ -81,7 +84,7 @@ def load_bywaterbot_data():
             source = "environment variable"
         except json.JSONDecodeError as e:
             print(f"Error parsing BYWATER_BOT_DATA: {e}")
-    
+
     # Fall back to local file
     if not data and os.path.exists("data.json"):
         try:
@@ -90,12 +93,13 @@ def load_bywaterbot_data():
                 source = "local file"
         except Exception as e:
             print(f"Error loading data.json: {e}")
-    
+
     if data:
         print(f"Successfully loaded bywaterbot_data from {source}")
         return data
     else:
         raise Exception("Failed to load bywaterbot_data from any source")
+
 
 def refresh_bywaterbot_data():
     """Refresh the bywaterbot_data by reloading it from the source."""
@@ -109,6 +113,7 @@ def refresh_bywaterbot_data():
         print(f"Error refreshing bywaterbot_data: {e}")
         return False
 
+
 # Initial load of bywaterbot_data
 bywaterbot_data = load_bywaterbot_data()
 pp.pprint(bywaterbot_data)
@@ -118,13 +123,14 @@ def run_scheduler():
     """Run the scheduler in a background thread."""
     # Initial refresh to ensure we have fresh data on startup
     refresh_bywaterbot_data()
-    
+
     # Schedule hourly refreshes
     schedule.every().hour.do(refresh_bywaterbot_data)
-    
+
     while True:
         schedule.run_pending()
         time.sleep(60)  # Check every minute
+
 
 # Start the scheduler in a background thread
 scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
@@ -133,10 +139,10 @@ scheduler_thread.start()
 # Give a quote on startup
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
 quote = get_quote(url=quotes_csv_url)
-#app.client.chat_postMessage(
+# app.client.chat_postMessage(
 #    channel="#general",
 #    text=quote,
-#)
+# )
 
 devops_channel_id = get_channel_id_by_name(app=app, channel_name="devops")
 print(f"DEVOPS CHANNEL ID: {devops_channel_id}")
@@ -149,6 +155,7 @@ karma_csv_url = os.environ.get("KARMA_CSV_URL")
 karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
 
 putdowns = get_putdowns()
+
 
 @app.message("help")
 def message_help(message, say):
@@ -172,13 +179,14 @@ def message_help(message, say):
     )
     say(text)
 
+
 # Refresh bywaterbot data manually
 @app.message("Refresh Data")
 def message_refresh(message, say):
     """Refresh bywaterbot data."""
     if message.get("channel_type") != "im":
         return
-    
+
     if refresh_bywaterbot_data():
         say("Successfully refreshed bywaterbot data!")
     else:
@@ -281,11 +289,13 @@ def message_hello(message, say):
     print(f"Hey there <@{message['user']}>!")
     say(f"Hey there <@{message['user']}>!")
 
+
 @app.message("names")
 def message_names(message, say):
     say("Here are the names I know along with that persons Slack ID :")
     for name, info in name_to_info.items():
         say(f"{name}: {info['id']}")
+
 
 @app.message("^wow")
 def message_hello(message, say):
@@ -550,6 +560,7 @@ def bug_regex(say, context):
         if len(transports) == 0:
             say(text=f"{user} has not opted to receive alerts from me!")
 
+
 @app.message(re.compile("test sms (.*)"))
 def test_sms(say, context):
     """Send a test SMS to the specified user."""
@@ -565,12 +576,11 @@ def test_sms(say, context):
         say(text=f"I've alerted {user} via sms!")
 
         body = f"This is a test SMS from the ByWater Slack bot."
-        message = twilio_client.messages.create(
-            body=body, from_=twilio_phone, to=sms
-        )
+        message = twilio_client.messages.create(body=body, from_=twilio_phone, to=sms)
         print(message.sid)
     else:
         say(text=f"{user} does not have an SMS number configured!")
+
 
 # Text someone from slack
 @app.message(re.compile("TEXT (.*)"))
@@ -705,8 +715,9 @@ def handle_reaction_events(body, logger):
     """
     handle_devops_fires(body, logger)
 
-#@app.event("message")
-#def handle_message_events(body, logger):
+
+# @app.event("message")
+# def handle_message_events(body, logger):
 #    print("MESSAGE EVENT")
 #    print(body)
 
