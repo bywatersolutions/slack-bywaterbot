@@ -12,7 +12,11 @@ import random
 import re
 import requests
 import rt
+import schedule
+import threading
+import time
 import urllib.request
+from datetime import datetime
 from twilio.rest import Client
 from bot_functions import (
     get_name_to_id_mapping,
@@ -56,22 +60,75 @@ auth_token = os.environ["TWILIO_AUTH_TOKEN"]
 twilio_phone = os.environ["TWILIO_PHONE"]
 twilio_client = Client(account_sid, auth_token)
 
-# Load json data
-bywaterbot_data = None
-if os.environ.get("BYWATER_BOT_DATA_URL"):
-    bywaterbot_data = get_data_from_url(os.environ.get("BYWATER_BOT_DATA_URL"), os.environ["BYWATER_BOT_GITHUB_TOKEN"])
-    if bywaterbot_data:
-        print("FOUND BYWATERBOT DATA FROM URL")
+def load_bywaterbot_data():
+    """Load bywaterbot_data from URL, environment variable, or local file."""
+    data = None
+    source = ""
+    
+    # Try to load from URL first
+    if os.environ.get("BYWATER_BOT_DATA_URL") and os.environ.get("BYWATER_BOT_GITHUB_TOKEN"):
+        data = get_data_from_url(
+            os.environ.get("BYWATER_BOT_DATA_URL"), 
+            os.environ["BYWATER_BOT_GITHUB_TOKEN"]
+        )
+        if data:
+            source = "URL"
+    
+    # Fall back to environment variable
+    if not data and os.environ.get("BYWATER_BOT_DATA"):
+        try:
+            data = json.loads(os.environ.get("BYWATER_BOT_DATA"))
+            source = "environment variable"
+        except json.JSONDecodeError as e:
+            print(f"Error parsing BYWATER_BOT_DATA: {e}")
+    
+    # Fall back to local file
+    if not data and os.path.exists("data.json"):
+        try:
+            with open("data.json") as f:
+                data = json.load(f)
+                source = "local file"
+        except Exception as e:
+            print(f"Error loading data.json: {e}")
+    
+    if data:
+        print(f"Successfully loaded bywaterbot_data from {source}")
+        return data
+    else:
+        raise Exception("Failed to load bywaterbot_data from any source")
 
-if not bywaterbot_data and os.environ.get("BYWATER_BOT_DATA"):
-    bywaterbot_data = json.loads(os.environ.get("BYWATER_BOT_DATA"))
-    print("FOUND BYWATERBOT DATA IN ENV")
+def refresh_bywaterbot_data():
+    """Refresh the bywaterbot_data by reloading it from the source."""
+    global bywaterbot_data
+    try:
+        new_data = load_bywaterbot_data()
+        bywaterbot_data = new_data
+        print(f"Successfully refreshed bywaterbot_data at {datetime.now()}")
+        return True
+    except Exception as e:
+        print(f"Error refreshing bywaterbot_data: {e}")
+        return False
 
-if not bywaterbot_data:
-    f = open("data.json")
-    bywaterbot_data = json.load(f)
-    print("FOUND BYWATERBOT DATA IN FILE")
+# Initial load of bywaterbot_data
+bywaterbot_data = load_bywaterbot_data()
 pp.pprint(bywaterbot_data)
+
+# Schedule hourly refresh
+def run_scheduler():
+    """Run the scheduler in a background thread."""
+    # Initial refresh to ensure we have fresh data on startup
+    refresh_bywaterbot_data()
+    
+    # Schedule hourly refreshes
+    schedule.every().hour.do(refresh_bywaterbot_data)
+    
+    while True:
+        schedule.run_pending()
+        time.sleep(60)  # Check every minute
+
+# Start the scheduler in a background thread
+scheduler_thread = threading.Thread(target=run_scheduler, daemon=True)
+scheduler_thread.start()
 
 # Give a quote on startup
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
@@ -105,6 +162,7 @@ def message_help(message, say):
         "* `names`: List known names and Slack IDs\n"
         "* `Quote Please`: Get a random quote\n"
         "* `Refresh Karma`: Refresh karma messages\n"
+        "* `Refresh Data`: Refresh ByWaterBot data from source\n"
         "* `bug 1234` or `bz 1234`: Look up Koha bug\n"
         "* `branches <bug_id> [shortname]`: Find branches for a bug\n"
         "* `test sms <user>`: Send test SMS\n"
@@ -113,6 +171,19 @@ def message_help(message, say):
         "* `user++` or `user--`: Individual karma"
     )
     say(text)
+
+# Refresh bywaterbot data manually
+@app.message("Refresh Data")
+def message_refresh(message, say):
+    """Refresh bywaterbot data."""
+    if message.get("channel_type") != "im":
+        return
+    
+    if refresh_bywaterbot_data():
+        say("Successfully refreshed bywaterbot data!")
+    else:
+        say("Failed to refresh bywaterbot data.")
+
 
 # Handle group karma e.g. (@khall @kidclamp @tcohen)++
 @app.message(re.compile("\((.+)\)\+\+"))
