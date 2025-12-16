@@ -76,16 +76,16 @@ pp.pprint(bywaterbot_data)
 # Give a quote on startup
 quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
 quote = get_quote(url=quotes_csv_url)
-app.client.chat_postMessage(
-    channel="#general",
-    text=quote,
-)
+#app.client.chat_postMessage(
+#    channel="#general",
+#    text=quote,
+#)
 
 devops_channel_id = get_channel_id_by_name(app=app, channel_name="devops")
 print(f"DEVOPS CHANNEL ID: {devops_channel_id}")
 
 # Get all Slack users and make a dictionary of name ( e.g. display name ) to user id
-name_to_id = get_name_to_id_mapping(app=app)
+name_to_id, name_to_info = get_name_to_id_mapping(app=app)
 
 # Load karma pep talks from csv
 karma_csv_url = os.environ.get("KARMA_CSV_URL")
@@ -188,6 +188,12 @@ def message_hello(message, say):
     # say() sends a message to the channel where the event was triggered
     print(f"Hey there <@{message['user']}>!")
     say(f"Hey there <@{message['user']}>!")
+
+@app.message("names")
+def message_names(message, say):
+    say("Here are the names I know along with that persons Slack ID :")
+    for name, info in name_to_info.items():
+        say(f"{name}: {info['id']}")
 
 
 @app.message("^wow")

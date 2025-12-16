@@ -114,6 +114,7 @@ def get_name_to_id_mapping(app):
         Dictionary mapping lower‑cased names to user IDs.
     """
     name_to_id = {}
+    name_to_info = {}
     resp = app.client.users_list()
     users = resp["members"]
     for u in users:
@@ -122,7 +123,10 @@ def get_name_to_id_mapping(app):
             name_to_id[u["name"].lower()] = u["id"]
         if "real_name" in u and not u["real_name"].lower() in name_to_id:
             name_to_id[u["real_name"].lower()] = u["id"]
-    return name_to_id
+
+        if "real_name" in u and ( "is_bot" not in u or not u["is_bot"]):
+            name_to_info[u["real_name"]] = u
+    return name_to_id, name_to_info
 
 
 def get_karma_pep_talks(url):
