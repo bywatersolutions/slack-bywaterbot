@@ -93,6 +93,27 @@ karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
 
 putdowns = get_putdowns()
 
+@app.message("help")
+def message_help(message, say):
+    """List bot capabilities (DM only)."""
+    if message.get("channel_type") != "im":
+        return
+
+    text = (
+        "Here are my capabilities:\n"
+        "* `hello`: Say hello\n"
+        "* `names`: List known names and Slack IDs\n"
+        "* `Quote Please`: Get a random quote\n"
+        "* `Refresh Karma`: Refresh karma messages\n"
+        "* `bug 1234` or `bz 1234`: Look up Koha bug\n"
+        "* `branches <bug_id> [shortname]`: Find branches for a bug\n"
+        "* `test sms <user>`: Send test SMS\n"
+        "* `TEXT <user> <message>`: Send SMS\n"
+        "* `(user1 user2)++`: Group karma\n"
+        "* `user++` or `user--`: Individual karma"
+    )
+    say(text)
+
 # Handle group karma e.g. (@khall @kidclamp @tcohen)++
 @app.message(re.compile("\((.+)\)\+\+"))
 def group_karma_regex(say, context):
@@ -194,7 +215,6 @@ def message_names(message, say):
     say("Here are the names I know along with that persons Slack ID :")
     for name, info in name_to_info.items():
         say(f"{name}: {info['id']}")
-
 
 @app.message("^wow")
 def message_hello(message, say):
