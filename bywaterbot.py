@@ -21,6 +21,7 @@ from bot_functions import (
     get_putdowns,
     get_channel_id_by_name,
     get_devops_fire_duty_asignee,
+    get_data_from_url,
 )
 from calendar_functions import (
     get_weekend_duty,
@@ -57,10 +58,16 @@ twilio_client = Client(account_sid, auth_token)
 
 # Load json data
 bywaterbot_data = None
-if os.environ.get("BYWATER_BOT_DATA"):
+if os.environ.get("BYWATER_BOT_DATA_URL"):
+    bywaterbot_data = get_data_from_url(os.environ.get("BYWATER_BOT_DATA_URL"), os.environ["BYWATER_BOT_GITHUB_TOKEN"])
+    if bywaterbot_data:
+        print("FOUND BYWATERBOT DATA FROM URL")
+
+if not bywaterbot_data and os.environ.get("BYWATER_BOT_DATA"):
     bywaterbot_data = json.loads(os.environ.get("BYWATER_BOT_DATA"))
     print("FOUND BYWATERBOT DATA IN ENV")
-else:
+
+if not bywaterbot_data:
     f = open("data.json")
     bywaterbot_data = json.load(f)
     print("FOUND BYWATERBOT DATA IN FILE")

@@ -6,9 +6,39 @@ user mapping, data retrieval, and message handling.
 """
 
 import csv
+import json
 import random
 import re
 import urllib.request
+import requests
+
+
+def get_data_from_url(url, token):
+    """Fetch JSON data from a URL.
+
+    Attempts to retrieve data from the given URL and parse it as JSON.
+    Useful for loading dynamic configuration from a remote source.
+
+    Args:
+        url: The URL to fetch data from.
+
+    Returns:
+        The parsed JSON data (dict or list) if successful, otherwise None.
+    """
+    try:
+        response = requests.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github.raw",
+            },
+            timeout=10,
+        )
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        print(f"Error fetching data from URL {url}: {e}")
+        return None
 
 
 def get_devops_fire_duty_asignee(app, channel_id):
