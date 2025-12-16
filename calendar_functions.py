@@ -1,3 +1,10 @@
+"""
+Calendar Functions Module
+
+Provides functionality to interact with the Google Calendar API.
+Used to identify the user currently assigned to weekend help desk duty.
+"""
+
 import datetime
 import os.path
 import re
@@ -10,6 +17,11 @@ from googleapiclient.discovery import build
 
 
 def main():
+    """Execute the main flow to find and print the weekend duty user.
+
+    Calls ``get_weekend_duty`` to retrieve the current event and ``get_user``
+    to extract the assignee's name, printing both to standard output.
+    """
     event = get_weekend_duty()
     print("EVENT:", event)
     user = get_user(event)
@@ -17,6 +29,16 @@ def main():
 
 
 def get_weekend_duty():
+    """Retrieve the current weekend help desk event from Google Calendar.
+
+    Authenticates with the Google Calendar API (handling OAuth token flow),
+    finds the "Weekend Help Desk" calendar, and searches for the event
+    corresponding to the current date.
+
+    Returns:
+        dict: A dictionary representation of the Google Calendar event if found,
+        otherwise None.
+    """
     SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
     creds = None
@@ -88,6 +110,17 @@ def get_weekend_duty():
 
 
 def get_user(event):
+    """Extract the user name from a calendar event summary.
+
+    Parses the event summary string (typically "Name - Weekend Help Desk")
+    to isolate the assignee's name using regex.
+
+    Args:
+        event (dict): The Google Calendar event object containing a 'summary' key.
+
+    Returns:
+        str: The extracted user name.
+    """
     if event:
         summary = event["summary"]
 

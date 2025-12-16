@@ -1,3 +1,10 @@
+"""
+Bot Functions Module
+
+Provides utility functions for the ByWater Slack bot, including channel lookup,
+user mapping, data retrieval, and message handling.
+"""
+
 import csv
 import random
 import re
@@ -5,6 +12,18 @@ import urllib.request
 
 
 def get_devops_fire_duty_asignee(app, channel_id):
+    """Retrieve the on‑call DevOps assignee from a channel topic.
+
+    The channel topic is expected to contain a phrase like ``is NAME`` where
+    ``NAME`` is the assignee's name. The function extracts and returns that name.
+
+    Args:
+        app: Slack ``App`` instance used to call the Slack API.
+        channel_id: The ID of the Slack channel to inspect.
+
+    Returns:
+        The extracted name as a string, or ``None`` if not found.
+    """
     """
     Get the channel topic and extract name using regex "is NAME"
     """
@@ -25,6 +44,15 @@ def get_devops_fire_duty_asignee(app, channel_id):
 
 
 def get_channel_id_by_name(app, channel_name):
+    """Return the Slack channel ID for a given channel name.
+
+    Args:
+        app: Slack ``App`` instance.
+        channel_name: Human‑readable name of the channel (without the ``#``).
+
+    Returns:
+        The channel ID string if found, otherwise ``None``.
+    """
     """
     Get channel ID by channel name
     """
@@ -44,6 +72,17 @@ def get_channel_id_by_name(app, channel_name):
 
 
 def get_name_to_id_mapping(app):
+    """Build a mapping from user display names to Slack user IDs.
+
+    The mapping includes ``display_name``, ``name`` and ``real_name`` keys,
+    all lower‑cased for case‑insensitive lookup.
+
+    Args:
+        app: Slack ``App`` instance.
+
+    Returns:
+        Dictionary mapping lower‑cased names to user IDs.
+    """
     name_to_id = {}
     resp = app.client.users_list()
     users = resp["members"]
@@ -57,6 +96,14 @@ def get_name_to_id_mapping(app):
 
 
 def get_karma_pep_talks(url):
+    """Download and parse the karma pep talks CSV.
+
+    Args:
+        url: URL to the CSV file.
+
+    Returns:
+        Four lists containing the different talk lines.
+    """
     urllib.request.urlretrieve(url, "karma.csv")
 
     karma1, karma2, karma3, karma4 = [], [], [], []
@@ -78,6 +125,16 @@ def get_karma_pep_talks(url):
 
 
 def get_quote(url):
+    """Download a CSV of quotes and return a random entry.
+
+    The function also normalises certain prefixes for nicer output.
+
+    Args:
+        url: URL to the quotes CSV.
+
+    Returns:
+        A single quote string.
+    """
     urllib.request.urlretrieve(url, "quotes.csv")
 
     quotes = []
@@ -109,6 +166,11 @@ def get_quote(url):
 
 
 def get_putdowns():
+    """Return a static list of humorous put‑downs used by the bot.
+
+    Returns:
+        List of strings.
+    """
     putdowns = [
         "you’re a gray sprinkle on a rainbow cupcake.",
         "you are more disappointing than an unsalted pretzel.",

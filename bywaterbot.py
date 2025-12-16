@@ -1,3 +1,10 @@
+"""
+ByWater Slack Bot
+
+Main application module for the ByWater Slack bot. Sets up the Slack Bolt app, loads configuration,
+and defines message handlers for karma, bug tracking, and other utilities.
+"""
+
 import json
 import os
 import pprint
@@ -82,6 +89,15 @@ putdowns = get_putdowns()
 # Handle group karma e.g. (@khall @kidclamp @tcohen)++
 @app.message(re.compile("\((.+)\)\+\+"))
 def group_karma_regex(say, context):
+    """Handle group karma increments.
+
+    This handler processes messages matching the pattern ``(user1 user2 ...)++`` and
+    awards karma to each mentioned user.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing regex matches from the Slack event.
+    """
     users = context["matches"][0]
     for user in users.split():
         give_karma(user, say, context)
@@ -90,11 +106,30 @@ def group_karma_regex(say, context):
 # Handle individual karma
 @app.message(re.compile("(\S*)(\s?\+\+\s?)(.*)?"))
 def karma_regex(say, context):
+    """Handle individual karma increments.
+
+    This handler processes messages matching ``user++`` or ``user --`` patterns.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing regex matches from the Slack event.
+    """
     user = context["matches"][0]
     give_karma(user, say, context)
 
 
 def give_karma(user, say, context):
+    """Award karma to a user or respond with a put‑down.
+
+    Determines whether ``user`` refers to a Slack user ID or a plain string.
+    If it is a user, posts a kudos message with random pep talk lines.
+    Otherwise, sends a humorous put‑down.
+
+    Args:
+        user: The target user identifier or name.
+        say: Function to send a response back to Slack.
+        context: Additional context (unused here).
+    """
     is_user = False
 
     if user.startswith("<@"):
@@ -115,6 +150,16 @@ def give_karma(user, say, context):
 # Handle negative Karma
 @app.message(re.compile("^(\w+)(\-\-)"))
 def karma_regex(say, context):
+    """Handle negative karma decrements.
+
+    This handler processes messages matching the pattern ``user--`` and
+    posts a humorous put‑down.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing regex matches from the Slack event.
+    """
+    user = context["matches"][0]
     user = context["matches"][0]
 
     is_user = False
@@ -152,6 +197,15 @@ def message_hello(message, say):
 
 @app.message("Quote Please")
 def say_quote(message, say):
+    """Post a random quote to #general and echo it.
+
+    Retrieves a quote via ``get_quote`` and posts it to the ``#general``
+    channel, then echoes the same quote back to the user who requested it.
+
+    Args:
+        message: Slack event payload.
+        say: Function to send a response back to Slack.
+    """
     quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
     quote = get_quote(url=quotes_csv_url)
     app.client.chat_postMessage(
@@ -163,6 +217,14 @@ def say_quote(message, say):
 
 @app.message("Refresh Karma")
 def refresh_karma(message, say):
+    """Refresh the cached karma pep talks.
+
+    Re‑loads the karma CSV files and acknowledges completion.
+
+    Args:
+        message: Slack event payload.
+        say: Function to send a response back to Slack.
+    """
     say(f"Sure thing!!")
     karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
     say(f"Done!")
@@ -171,6 +233,17 @@ def refresh_karma(message, say):
 # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
 @app.message(re.compile("(bug|bz)\s*([0-9]+)"))
 def bug_regex(say, context):
+    """Lookup a Koha bug and post its details.
+
+    Handles messages like ``bug 1234`` or ``bz 1234``. Retrieves bug summary and
+    status from the Koha Bugzilla API and formats a Slack message with a button
+    linking to the bug.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing regex matches, where ``matches[1]`` is the
+            bug number.
+    """
     # regular expression matches are inside of context.matches
     # pp.pprint(context)
     bug = context["matches"][1]
@@ -217,6 +290,17 @@ def bug_regex(say, context):
 # RT links, recognizes "ticket 1234" and "rt 1234"
 @app.message(re.compile("(ticket|rt)\s*([0-9]+)"))
 def bug_regex(say, context):
+    """Lookup an RT ticket and post its details.
+
+    Handles messages like ``ticket 1234`` or ``rt 1234``. Retrieves ticket
+    information via the RT API and formats a Slack message with a button linking
+    to the ticket.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing regex matches, where ``matches[1]`` is the
+            ticket ID.
+    """
     ticket_id = context["matches"][1]
 
     rt_user = os.environ.get("RT_USERNAME")
@@ -287,6 +371,16 @@ def bug_regex(say, context):
 # ByWater "Koha branches that contain this bug" tool
 @app.message(re.compile("(branches)\s*(\d+)\s*(\S*)"))
 def bug_regex(say, context):
+    """Find Koha branches containing a bug.
+
+    Responds to ``branches <bug_id> [shortname]`` by querying a helper service
+    that returns a list of branches where the bug is present.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing regex matches; ``matches[1]`` is the bug
+            ID and ``matches[2]`` is an optional shortname.
+    """
     bug = context["matches"][1]
     shortname = context["matches"][2] or "bywater"
     print(f"BUG: {bug}, SHORTNAME: {shortname}")
@@ -314,6 +408,16 @@ def bug_regex(say, context):
 # ByWater Weekend Updater, sends sms to person on weekend duty
 @app.message(re.compile("Ticket Created:\s+\*\[(.+)\]\*\s+(\d+)\s+-\s+(.*)"))
 def bug_regex(say, context):
+    """Notify weekend duty on ticket creation.
+
+    Triggered by messages matching ``Ticket Created: *[queue]* <id> - <desc>``.
+    Looks up the on‑call user for the weekend and sends an SMS via Twilio.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing regex matches for queue, ticket ID, and
+            description.
+    """
     queue = context["matches"][1]
     ticket = context["matches"][1]
     description = context["matches"][2]
@@ -346,6 +450,15 @@ def bug_regex(say, context):
 # Text someone from slack
 @app.message(re.compile("TEXT (.*)"))
 def bug_regex(say, context):
+    """Relay a Slack message to a user via SMS.
+
+    Handles ``TEXT <user> <message>`` commands, looks up the target user in the
+    configuration, and forwards the message using Twilio.
+
+    Args:
+        say: Function to send a response back to Slack.
+        context: Dictionary containing the raw message text.
+    """
     pp.pprint(context)
     message = context["matches"][0]
 
@@ -385,6 +498,15 @@ def bug_regex(say, context):
 
 
 def handle_devops_fires(body, logger):
+    """Monitor #devops channel for fire emoji events.
+
+    When a fire emoji is added, extracts the on‑call assignee from the channel
+    topic and sends an alert via SMS.
+
+    Args:
+        body: Event payload from Slack.
+        logger: Logger instance for debugging.
+    """
     """
     Monitor #devops channel for messages containing fire emoji or reactions with fire emoji.
     When found, check the channel topic for a name using regex "is NAME".
@@ -448,6 +570,14 @@ def handle_devops_fires(body, logger):
 
 @app.event("reaction_added")
 def handle_reaction_events(body, logger):
+    """Entry point for reaction events.
+
+    Delegates to ``handle_devops_fires`` to process fire‑emoji reactions.
+
+    Args:
+        body: Event payload from Slack.
+        logger: Logger instance.
+    """
     handle_devops_fires(body, logger)
 
 #@app.event("message")
