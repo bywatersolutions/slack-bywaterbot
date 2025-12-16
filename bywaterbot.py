@@ -446,6 +446,27 @@ def bug_regex(say, context):
         if len(transports) == 0:
             say(text=f"{user} has not opted to receive alerts from me!")
 
+@app.message(re.compile("test sms (.*)"))
+def test_sms(say, context):
+    """Send a test SMS to the specified user."""
+    user = context["matches"][0]
+
+    if user not in bywaterbot_data["users"]:
+        say(text=f"I couldn't find a user named {user} in my records!")
+        return
+
+    transports = bywaterbot_data["users"][user]
+    if "sms" in transports and transports["sms"]:
+        sms = transports["sms"]
+        say(text=f"I've alerted {user} via sms!")
+
+        body = f"This is a test SMS from the ByWater Slack bot."
+        message = twilio_client.messages.create(
+            body=body, from_=twilio_phone, to=sms
+        )
+        print(message.sid)
+    else:
+        say(text=f"{user} does not have an SMS number configured!")
 
 # Text someone from slack
 @app.message(re.compile("TEXT (.*)"))
