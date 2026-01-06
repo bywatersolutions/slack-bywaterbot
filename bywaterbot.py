@@ -166,7 +166,7 @@ def message_help(message, say):
     text = (
         "Here are my capabilities:\n"
         "* `hello`: Say hello\n"
-        "* `names`: List known names and Slack IDs\n"
+        "* `list slack names`: List known names and Slack IDs\n"
         "* `Quote Please`: Get a random quote\n"
         "* `Refresh Karma`: Refresh karma messages\n"
         "* `Refresh Data`: Refresh ByWaterBot data from source\n"
@@ -290,7 +290,7 @@ def message_hello(message, say):
     say(f"Hey there <@{message['user']}>!")
 
 
-@app.message("names")
+@app.message("^list slack names")
 def message_names(message, say):
     say("Here are the names I know along with that persons Slack ID :")
     for name, info in name_to_info.items():
