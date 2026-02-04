@@ -64,19 +64,31 @@ def get_data_from_url(url, token):
 
     Attempts to retrieve data from the given URL and parse it as JSON.
     Useful for loading dynamic configuration from a remote source.
+    Automatically converts GitHub blob URLs to raw URLs.
 
     Args:
         url: The URL to fetch data from.
+        token: GitHub personal access token for authentication.
 
     Returns:
         The parsed JSON data (dict or list) if successful, otherwise None.
     """
     try:
+        # Convert GitHub blob/edit URL to API URL for reliable private access
+        # Matches: github.com/owner/repo/blob/branch/path/to/file
+        github_pattern = re.compile(r"github\.com/([^/]+)/([^/]+)/(?:blob|edit)/([^/]+)/(.+)")
+        match = github_pattern.search(url)
+        
+        if match:
+            owner, repo, branch, path = match.groups()
+            # Construct API URL: https://api.github.com/repos/OWNER/REPO/contents/PATH?ref=BRANCH
+            url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
+            
         response = requests.get(
             url,
             headers={
                 "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github.raw",
+                "Accept": "application/vnd.github.v3.raw",
             },
             timeout=10,
         )
