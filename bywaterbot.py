@@ -26,6 +26,7 @@ from bot_functions import (
     get_channel_id_by_name,
     get_devops_fire_duty_asignee,
     get_data_from_url,
+    load_bywaterbot_data,
 )
 from calendar_functions import (
     get_weekend_duty,
@@ -86,50 +87,6 @@ auth_token = os.environ["TWILIO_AUTH_TOKEN"]
 twilio_phone = os.environ["TWILIO_PHONE"]
 twilio_client = Client(account_sid, auth_token)
 
-
-def load_bywaterbot_data():
-    """Load bywaterbot_data from URL, environment variable, or local file."""
-    data = None
-    source = ""
-
-    # Try to load from URL first
-    if os.environ.get("BYWATER_BOT_DATA_URL") and os.environ.get(
-        "BYWATER_BOT_GITHUB_TOKEN"
-    ):
-        print("Loading bywaterbot_data from URL")
-        data = get_data_from_url(
-            os.environ["BYWATER_BOT_DATA_URL"],
-            os.environ["BYWATER_BOT_GITHUB_TOKEN"],
-        )
-        if data:
-            print("Successfully loaded bywaterbot_data from URL")
-            source = "URL"
-
-    # Fall back to environment variable
-    if not data and os.environ.get("BYWATER_BOT_DATA"):
-        try:
-            print("Loading bywaterbot_data from environment variable")
-            data = json.loads(os.environ.get("BYWATER_BOT_DATA"))
-            source = "environment variable"
-        except json.JSONDecodeError as e:
-            print(f"Error parsing BYWATER_BOT_DATA: {e}")
-
-    # Fall back to local file
-    if not data and os.path.exists("data.json"):
-        try:
-            with open("data.json") as f:
-                print("Loading bywaterbot_data from local file")
-                data = json.load(f)
-                source = "local file"
-        except Exception as e:
-            print(f"Error loading data.json: {e}")
-
-    if data:
-        print(f"Successfully loaded bywaterbot_data from {source}")
-        return data
-    else:
-        print("Failed to load bywaterbot_data from any source")
-        raise Exception("Failed to load bywaterbot_data from any source")
 
 
 def refresh_bywaterbot_data():
