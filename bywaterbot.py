@@ -47,25 +47,25 @@ pp.pprint(bywaterbot_data)
 
 # Set environment variables from bywaterbot_data if they are not already set
 if "BYWATER_BOT_GITHUB_TOKEN" not in os.environ:
-    os.environ["BYWATER_BOT_GITHUB_TOKEN"] = bywaterbot_data["BYWATER_BOT_GITHUB_TOKEN"]
+    os.environ["BYWATER_BOT_GITHUB_TOKEN"] = bywaterbot_data.get("BYWATER_BOT_GITHUB_TOKEN", "")
 if "CREDENTIALS_JSON" not in os.environ:
-    os.environ["CREDENTIALS_JSON"] = bywaterbot_data["CREDENTIALS_JSON"]
+    os.environ["CREDENTIALS_JSON"] = bywaterbot_data.get("CREDENTIALS_JSON", "")
 if "KARMA_CSV_URL" not in os.environ:
-    os.environ["KARMA_CSV_URL"] = bywaterbot_data["KARMA_CSV_URL"]
+    os.environ["KARMA_CSV_URL"] = bywaterbot_data.get("KARMA_CSV_URL", "")
 if "QUOTES_CSV_URL" not in os.environ:
-    os.environ["QUOTES_CSV_URL"] = bywaterbot_data["QUOTES_CSV_URL"]
+    os.environ["QUOTES_CSV_URL"] = bywaterbot_data.get("QUOTES_CSV_URL", "")
 if "SLACK_APP_TOKEN" not in os.environ:
-    os.environ["SLACK_APP_TOKEN"] = bywaterbot_data["SLACK_APP_TOKEN"]
+    os.environ["SLACK_APP_TOKEN"] = bywaterbot_data.get("SLACK_APP_TOKEN", "")
 if "SLACK_BOT_TOKEN" not in os.environ:
-    os.environ["SLACK_BOT_TOKEN"] = bywaterbot_data["SLACK_BOT_TOKEN"]
+    os.environ["SLACK_BOT_TOKEN"] = bywaterbot_data.get("SLACK_BOT_TOKEN", "")
 if "TWILIO_ACCOUNT_SID" not in os.environ:
-    os.environ["TWILIO_ACCOUNT_SID"] = bywaterbot_data["TWILIO_ACCOUNT_SID"]
+    os.environ["TWILIO_ACCOUNT_SID"] = bywaterbot_data.get("TWILIO_ACCOUNT_SID", "")
 if "TWILIO_AUTH_TOKEN" not in os.environ:
-    os.environ["TWILIO_AUTH_TOKEN"] = bywaterbot_data["TWILIO_AUTH_TOKEN"]
+    os.environ["TWILIO_AUTH_TOKEN"] = bywaterbot_data.get("TWILIO_AUTH_TOKEN", "")
 if "TWILIO_PHONE" not in os.environ:
-    os.environ["TWILIO_PHONE"] = bywaterbot_data["TWILIO_PHONE"]
+    os.environ["TWILIO_PHONE"] = bywaterbot_data.get("TWILIO_PHONE", "")
 if "TOKEN_JSON" not in os.environ:
-    os.environ["TOKEN_JSON"] = bywaterbot_data["TOKEN_JSON"]
+    os.environ["TOKEN_JSON"] = bywaterbot_data.get("TOKEN_JSON", "")
 
 # Write google credentials to file if stored in environment variable
 if "CREDENTIALS_JSON" in os.environ:
