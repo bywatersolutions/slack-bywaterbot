@@ -98,7 +98,7 @@ def load_bywaterbot_data():
     ):
         print("Loading bywaterbot_data from URL")
         data = get_data_from_url(
-            os.environ.get("BYWATER_BOT_DATA_URL"),
+            os.environ["BYWATER_BOT_DATA_URL"],
             os.environ["BYWATER_BOT_GITHUB_TOKEN"],
         )
         if data:
