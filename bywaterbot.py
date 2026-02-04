@@ -40,6 +40,32 @@ pp = pprint.PrettyPrinter(indent=2)
 
 print("ByWaterBot is starting up!")
 
+# Initial load of bywaterbot_data
+bywaterbot_data = load_bywaterbot_data()
+pp.pprint(bywaterbot_data)
+
+# Set environment variables from bywaterbot_data if they are not already set
+if "BYWATER_BOT_GITHUB_TOKEN" not in os.environ:
+    os.environ["BYWATER_BOT_GITHUB_TOKEN"] = bywaterbot_data["BYWATER_BOT_GITHUB_TOKEN"]
+if "CREDENTIALS_JSON" not in os.environ:
+    os.environ["CREDENTIALS_JSON"] = bywaterbot_data["CREDENTIALS_JSON"]
+if "KARMA_CSV_URL" not in os.environ:
+    os.environ["KARMA_CSV_URL"] = bywaterbot_data["KARMA_CSV_URL"]
+if "QUOTES_CSV_URL" not in os.environ:
+    os.environ["QUOTES_CSV_URL"] = bywaterbot_data["QUOTES_CSV_URL"]
+if "SLACK_APP_TOKEN" not in os.environ:
+    os.environ["SLACK_APP_TOKEN"] = bywaterbot_data["SLACK_APP_TOKEN"]
+if "SLACK_BOT_TOKEN" not in os.environ:
+    os.environ["SLACK_BOT_TOKEN"] = bywaterbot_data["SLACK_BOT_TOKEN"]
+if "TWILIO_ACCOUNT_SID" not in os.environ:
+    os.environ["TWILIO_ACCOUNT_SID"] = bywaterbot_data["TWILIO_ACCOUNT_SID"]
+if "TWILIO_AUTH_TOKEN" not in os.environ:
+    os.environ["TWILIO_AUTH_TOKEN"] = bywaterbot_data["TWILIO_AUTH_TOKEN"]
+if "TWILIO_PHONE" not in os.environ:
+    os.environ["TWILIO_PHONE"] = bywaterbot_data["TWILIO_PHONE"]
+if "TOKEN_JSON" not in os.environ:
+    os.environ["TOKEN_JSON"] = bywaterbot_data["TOKEN_JSON"]
+
 # Write google credentials to file if stored in environment variable
 if "CREDENTIALS_JSON" in os.environ:
     f = open("credentials.json", "w")
@@ -70,16 +96,19 @@ def load_bywaterbot_data():
     if os.environ.get("BYWATER_BOT_DATA_URL") and os.environ.get(
         "BYWATER_BOT_GITHUB_TOKEN"
     ):
+        print("Loading bywaterbot_data from URL")
         data = get_data_from_url(
             os.environ.get("BYWATER_BOT_DATA_URL"),
             os.environ["BYWATER_BOT_GITHUB_TOKEN"],
         )
         if data:
+            print("Successfully loaded bywaterbot_data from URL")
             source = "URL"
 
     # Fall back to environment variable
     if not data and os.environ.get("BYWATER_BOT_DATA"):
         try:
+            print("Loading bywaterbot_data from environment variable")
             data = json.loads(os.environ.get("BYWATER_BOT_DATA"))
             source = "environment variable"
         except json.JSONDecodeError as e:
@@ -89,6 +118,7 @@ def load_bywaterbot_data():
     if not data and os.path.exists("data.json"):
         try:
             with open("data.json") as f:
+                print("Loading bywaterbot_data from local file")
                 data = json.load(f)
                 source = "local file"
         except Exception as e:
@@ -98,6 +128,7 @@ def load_bywaterbot_data():
         print(f"Successfully loaded bywaterbot_data from {source}")
         return data
     else:
+        print("Failed to load bywaterbot_data from any source")
         raise Exception("Failed to load bywaterbot_data from any source")
 
 
@@ -112,11 +143,6 @@ def refresh_bywaterbot_data():
     except Exception as e:
         print(f"Error refreshing bywaterbot_data at {datetime.now()}: {e}")
         return False
-
-
-# Initial load of bywaterbot_data
-bywaterbot_data = load_bywaterbot_data()
-pp.pprint(bywaterbot_data)
 
 # Schedule hourly refresh
 def run_scheduler():
