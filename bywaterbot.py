@@ -19,18 +19,20 @@ import urllib.request
 from datetime import datetime
 from twilio.rest import Client
 from bot_functions import (
-    get_name_to_id_mapping,
-    get_karma_pep_talks,
-    get_quote,
-    get_putdowns,
     get_channel_id_by_name,
-    get_devops_fire_duty_asignee,
     get_data_from_url,
+    get_devops_fire_duty_asignee,
+    get_karma_pep_talks,
+    get_name_to_id_mapping,
+    get_putdowns,
+    get_quote,
     load_bywaterbot_data,
 )
 from calendar_functions import (
-    get_weekend_duty,
+    get_google_creds,
     get_user,
+    get_weekday_duty,
+    get_weekend_duty,
 )
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -72,7 +74,9 @@ if "CREDENTIALS_JSON" in os.environ:
     f = open("credentials.json", "w")
     f.write(os.environ["CREDENTIALS_JSON"])
     f.close()
-if "TOKEN_JSON" in os.environ:
+
+# Only write token.json from env var if it doesn't exist (don't overwrite cached credentials)
+if "TOKEN_JSON" in os.environ and not os.path.exists("token.json"):
     f = open("token.json", "w")
     f.write(os.environ["TOKEN_JSON"])
     f.close()
@@ -86,8 +90,6 @@ account_sid = os.environ["TWILIO_ACCOUNT_SID"]
 auth_token = os.environ["TWILIO_AUTH_TOKEN"]
 twilio_phone = os.environ["TWILIO_PHONE"]
 twilio_client = Client(account_sid, auth_token)
-
-
 
 def refresh_bywaterbot_data():
     """Refresh the bywaterbot_data by reloading it from the source."""
@@ -129,6 +131,15 @@ quote = get_quote(url=quotes_csv_url)
 
 devops_channel_id = get_channel_id_by_name(app=app, channel_name="devops")
 print(f"DEVOPS CHANNEL ID: {devops_channel_id}")
+
+# Initialize Google Calendar credentials at startup
+print("Initializing Google Calendar credentials...")
+try:
+    get_google_creds()
+    print("Google Calendar credentials initialized successfully")
+except Exception as e:
+    print(f"Warning: Failed to initialize Google Calendar credentials: {e}")
+    print("Calendar features may not work until credentials are configured")
 
 # Get all Slack users and make a dictionary of name ( e.g. display name ) to user id
 name_to_id, name_to_info = get_name_to_id_mapping(app=app)
@@ -177,7 +188,7 @@ def message_refresh(message, say):
 
 
 # Handle group karma e.g. (@khall @kidclamp @tcohen)++
-@app.message(re.compile("\((.+)\)\+\+"))
+@app.message(re.compile(r"\((.+)\)\+\+"))
 def group_karma_regex(say, context):
     """Handle group karma increments.
 
@@ -194,7 +205,7 @@ def group_karma_regex(say, context):
 
 
 # Handle individual karma
-@app.message(re.compile("(\S*)(\s?\+\+\s?)(.*)?"))
+@app.message(re.compile(r"(\S*)(\s?\+\+\s?)(.*)?"))
 def karma_regex(say, context):
     """Handle individual karma increments.
 
@@ -238,7 +249,7 @@ def give_karma(user, say, context):
 
 
 # Handle negative Karma
-@app.message(re.compile("^(\w+)(\-\-)"))
+@app.message(re.compile(r"^(\w+)(\-\-)"))
 def karma_regex(say, context):
     """Handle negative karma decrements.
 
@@ -328,7 +339,7 @@ def refresh_karma(message, say):
 
 
 # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
-@app.message(re.compile("(bug|bz)\s*([0-9]+)"))
+@app.message(re.compile(r"(bug|bz)\s*([0-9]+)"))
 def bug_regex(say, context):
     """Lookup a Koha bug and post its details.
 
@@ -385,7 +396,7 @@ def bug_regex(say, context):
 
 
 # RT links, recognizes "ticket 1234" and "rt 1234"
-@app.message(re.compile("(ticket|rt)\s*([0-9]+)"))
+@app.message(re.compile(r"(ticket|rt)\s*([0-9]+)"))
 def bug_regex(say, context):
     """Lookup an RT ticket and post its details.
 
@@ -466,7 +477,7 @@ def bug_regex(say, context):
 
 
 # ByWater "Koha branches that contain this bug" tool
-@app.message(re.compile("(branches)\s*(\d+)\s*(\S*)"))
+@app.message(re.compile(r"(branches)\s*(\d+)\s*(\S*)"))
 def bug_regex(say, context):
     """Find Koha branches containing a bug.
 
@@ -503,7 +514,7 @@ def bug_regex(say, context):
 
 
 # ByWater Weekend Updater, sends sms to person on weekend duty
-@app.message(re.compile("Ticket Created:\s+\*\[(.+)\]\*\s+(\d+)\s+-\s+(.*)"))
+@app.message(re.compile(r"Ticket Created:\s+\*\[(.+)\]\*\s+(\d+)\s+-\s+(.*)"))
 def bug_regex(say, context):
     """Notify weekend duty on ticket creation.
 
@@ -684,6 +695,31 @@ def handle_devops_fires(body, logger):
         print(f"BODY: {body}")
         message = twilio_client.messages.create(body=body, from_=twilio_phone, to=sms)
         print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
+
+    event = get_weekday_duty("dev")
+    if event:
+        alert_user(event, "dev")
+
+    event = get_weekday_duty("systems")
+    if event:
+        alert_user(event, "systems")
+
+def alert_user(event, department):
+    user = get_user(event)
+    print("FOUND USER: ", user)
+    transports = bywaterbot_data["users"][user]
+    if transports["sms"]:
+        sms = transports["sms"]
+        say(text=f"I've alerted {user} via sms!")
+
+        body = f"Fire! Fire! {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
+        message = twilio_client.messages.create(
+            body=body, from_=twilio_phone, to=sms
+        )
+        print(message.sid)
+
+    if len(transports) == 0:
+        say(text=f"{user} has not opted to receive alerts from me!")
 
 
 @app.event("reaction_added")
