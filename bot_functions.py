@@ -76,14 +76,16 @@ def get_data_from_url(url, token):
     try:
         # Convert GitHub blob/edit URL to API URL for reliable private access
         # Matches: github.com/owner/repo/blob/branch/path/to/file
-        github_pattern = re.compile(r"github\.com/([^/]+)/([^/]+)/(?:blob|edit)/([^/]+)/(.+)")
+        github_pattern = re.compile(
+            r"github\.com/([^/]+)/([^/]+)/(?:blob|edit)/([^/]+)/(.+)"
+        )
         match = github_pattern.search(url)
-        
+
         if match:
             owner, repo, branch, path = match.groups()
             # Construct API URL: https://api.github.com/repos/OWNER/REPO/contents/PATH?ref=BRANCH
             url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
-            
+
         response = requests.get(
             url,
             headers={

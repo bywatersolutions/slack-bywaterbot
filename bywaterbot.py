@@ -49,7 +49,9 @@ pp.pprint(bywaterbot_data)
 
 # Set environment variables from bywaterbot_data if they are not already set
 if "BYWATER_BOT_GITHUB_TOKEN" not in os.environ:
-    os.environ["BYWATER_BOT_GITHUB_TOKEN"] = bywaterbot_data.get("BYWATER_BOT_GITHUB_TOKEN", "")
+    os.environ["BYWATER_BOT_GITHUB_TOKEN"] = bywaterbot_data.get(
+        "BYWATER_BOT_GITHUB_TOKEN", ""
+    )
 if "CREDENTIALS_JSON" not in os.environ:
     os.environ["CREDENTIALS_JSON"] = bywaterbot_data.get("CREDENTIALS_JSON", "")
 if "KARMA_CSV_URL" not in os.environ:
@@ -91,6 +93,7 @@ auth_token = os.environ["TWILIO_AUTH_TOKEN"]
 twilio_phone = os.environ["TWILIO_PHONE"]
 twilio_client = Client(account_sid, auth_token)
 
+
 def refresh_bywaterbot_data():
     """Refresh the bywaterbot_data by reloading it from the source."""
     global bywaterbot_data
@@ -102,6 +105,7 @@ def refresh_bywaterbot_data():
     except Exception as e:
         print(f"Error refreshing bywaterbot_data at {datetime.now()}: {e}")
         return False
+
 
 # Schedule hourly refresh
 def run_scheduler():
@@ -218,6 +222,7 @@ def karma_regex(say, context):
     user = context["matches"][0]
     give_karma(user, say, context)
 
+
 @app.event("reaction_added")
 def handle_reaction_events(body, logger):
     """Entry point for reaction events.
@@ -229,6 +234,7 @@ def handle_reaction_events(body, logger):
         logger: Logger instance.
     """
     handle_devops_fires(body, logger)
+
 
 # Handle negative Karma
 @app.message(re.compile(r"^(\w+)(\-\-)"))
@@ -640,7 +646,9 @@ def handle_devops_fires(body, logger):
     text = ""
 
     # Check if this is a reaction event
-    if event.get("type") == "reaction_added": #FIXME this sub is always called by a reaction_added event
+    if (
+        event.get("type") == "reaction_added"
+    ):  # FIXME this sub is always called by a reaction_added event
         reaction = event.get("reaction")
         print("REACTION: ", reaction)
         if reaction == "fire":
@@ -690,10 +698,11 @@ def handle_devops_fires(body, logger):
     if event:
         alert_user(event, "systems", channel_id, message_ts, body, logger)
 
+
 def alert_user(event, department, channel_id, message_ts, body, logger):
     user = get_user(event)
     print("FOUND USER: ", user)
-    
+
     # Check if user exists in our data
     if user not in bywaterbot_data["users"]:
         print(f"User {user} not found in bywaterbot_data")
@@ -701,7 +710,7 @@ def alert_user(event, department, channel_id, message_ts, body, logger):
         app.client.chat_postMessage(
             channel=channel_id,
             text=f"I found {user} on the calendar but don't have their contact info!",
-            thread_ts=message_ts
+            thread_ts=message_ts,
         )
         return
 
@@ -711,11 +720,13 @@ def alert_user(event, department, channel_id, message_ts, body, logger):
         app.client.chat_postMessage(
             channel=channel_id,
             text=f"I've alerted {user} via sms!",
-            thread_ts=message_ts
+            thread_ts=message_ts,
         )
 
         # Construct a generic fire message since we don't have ticket details here
-        sms_body = f"Fire! Fire! There is a fire in #{department} that needs your attention."
+        sms_body = (
+            f"Fire! Fire! There is a fire in #{department} that needs your attention."
+        )
         message = twilio_client.messages.create(
             body=sms_body, from_=twilio_phone, to=sms
         )
@@ -725,8 +736,9 @@ def alert_user(event, department, channel_id, message_ts, body, logger):
         app.client.chat_postMessage(
             channel=channel_id,
             text=f"{user} has not opted to receive alerts from me!",
-            thread_ts=message_ts
+            thread_ts=message_ts,
         )
+
 
 def give_karma(user, say, context):
     """Award karma to a user or respond with a put‑down.
@@ -755,8 +767,6 @@ def give_karma(user, say, context):
         )
     else:
         say(text=f"Who doesn't love {user}, right?")
-
-
 
 
 # Start your app

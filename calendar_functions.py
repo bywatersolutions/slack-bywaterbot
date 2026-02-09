@@ -27,6 +27,7 @@ def main():
     user = get_user(event)
     print("USER: ", user)
 
+
 def get_weekday_duty(department):
 
     if department == "dev":
@@ -69,17 +70,23 @@ def get_weekday_duty(department):
         # Get events for the current hour only
         now = datetime.datetime.utcnow()
 
-#FIXME: list() will only return events that start after timeMin and end before timeMax
-# This means that if an event starts before timeMin and ends after timeMax, it will not be returned
-# https://chatgpt.com/share/6985f4b9-5208-800c-be86-adbf8c9cb9ae
+        # FIXME: list() will only return events that start after timeMin and end before timeMax
+        # This means that if an event starts before timeMin and ends after timeMax, it will not be returned
+        # https://chatgpt.com/share/6985f4b9-5208-800c-be86-adbf8c9cb9ae
 
-        start_of_yesterday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
-        end_of_tomorrow = now.replace(hour=23, minute=59, second=59, microsecond=999999) + timedelta(days=1)
-        
+        start_of_yesterday = now.replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ) - timedelta(days=1)
+        end_of_tomorrow = now.replace(
+            hour=23, minute=59, second=59, microsecond=999999
+        ) + timedelta(days=1)
+
         time_min = start_of_yesterday.isoformat() + "Z"
         time_max = end_of_tomorrow.isoformat() + "Z"
-        
-        print(f"Getting events for {calendar_name} from {start_of_yesterday} to {end_of_tomorrow} UTC")
+
+        print(
+            f"Getting events for {calendar_name} from {start_of_yesterday} to {end_of_tomorrow} UTC"
+        )
         events_result = (
             service.events()
             .list(
@@ -106,14 +113,16 @@ def get_weekday_duty(department):
             end_of_event = event["end"].get("dateTime", event["end"].get("date"))
 
             print(f"Event: {event['summary']} ({start_of_event} to {end_of_event})")
-            
+
             # For all-day events, compare dates; for timed events, compare timestamps
             if "T" in start_of_event:  # Timed event
                 start_dt = datetime.datetime.fromisoformat(start_of_event)
                 end_dt = datetime.datetime.fromisoformat(end_of_event)
-                
+
                 if start_dt <= current_dt <= end_dt:
-                    print(f"Found current event: {event['summary']} ({start_of_event} to {end_of_event})")
+                    print(
+                        f"Found current event: {event['summary']} ({start_of_event} to {end_of_event})"
+                    )
                     return event
 
         print("No event found for current time.")
@@ -215,16 +224,18 @@ def get_user(event):
         print("USER: ", name)
         return name
 
+
 # Global credential cache to prevent race conditions
 _cached_creds = None
 
+
 def get_google_creds():
     global _cached_creds
-    
+
     # Return cached credentials if available and valid
     if _cached_creds and _cached_creds.valid:
         return _cached_creds
-    
+
     SCOPES = ["https://www.googleapis.com/auth/calendar.readonly"]
 
     # The file token.json stores the user's access and refresh tokens, and is
@@ -245,7 +256,7 @@ def get_google_creds():
             except:
                 pass
             creds = None
-    
+
     # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         print("No valid credentials found")
@@ -256,19 +267,19 @@ def get_google_creds():
             except Exception as e:
                 print(f"Error refreshing credentials: {e}. Will re-authenticate.")
                 creds = None
-        
+
         if not creds:
             print("Creating new credentials")
             flow = InstalledAppFlow.from_client_secrets_file("credentials.json", SCOPES)
             creds = flow.run_local_server(port=0)
-        
+
         # Save the credentials for the next run
         try:
             with open("token.json", "w") as token:
                 token.write(creds.to_json())
         except Exception as e:
             print(f"Warning: Could not save token.json: {e}")
-    
+
     # Cache the credentials
     _cached_creds = creds
     return creds
