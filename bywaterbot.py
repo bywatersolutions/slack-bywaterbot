@@ -218,35 +218,17 @@ def karma_regex(say, context):
     user = context["matches"][0]
     give_karma(user, say, context)
 
+@app.event("reaction_added")
+def handle_reaction_events(body, logger):
+    """Entry point for reaction events.
 
-def give_karma(user, say, context):
-    """Award karma to a user or respond with a put‑down.
-
-    Determines whether ``user`` refers to a Slack user ID or a plain string.
-    If it is a user, posts a kudos message with random pep talk lines.
-    Otherwise, sends a humorous put‑down.
+    Delegates to ``handle_devops_fires`` to process fire‑emoji reactions.
 
     Args:
-        user: The target user identifier or name.
-        say: Function to send a response back to Slack.
-        context: Additional context (unused here).
+        body: Event payload from Slack.
+        logger: Logger instance.
     """
-    is_user = False
-
-    if user.startswith("<@"):
-        is_user = True
-    elif (not user.startswith("<@")) and user.lower() in name_to_id:
-        user = f"<@{name_to_id[user.lower()]}>"
-        is_user = True
-
-    if is_user:
-        app.client.chat_postMessage(
-            channel="#kudos",
-            text=f"{user} {random.choice(karma1)} {random.choice(karma2)} {random.choice(karma3)} {random.choice(karma4)}",
-        )
-    else:
-        say(text=f"Who doesn't love {user}, right?")
-
+    handle_devops_fires(body, logger)
 
 # Handle negative Karma
 @app.message(re.compile(r"^(\w+)(\-\-)"))
@@ -658,7 +640,7 @@ def handle_devops_fires(body, logger):
     text = ""
 
     # Check if this is a reaction event
-    if event.get("type") == "reaction_added":
+    if event.get("type") == "reaction_added": #FIXME this sub is always called by a reaction_added event
         reaction = event.get("reaction")
         print("REACTION: ", reaction)
         if reaction == "fire":
@@ -698,17 +680,21 @@ def handle_devops_fires(body, logger):
 
     event = get_weekday_duty("dev")
     if event:
-        alert_user(event, "dev")
+        alert_user(event, "dev", body, logger)
 
     event = get_weekday_duty("systems")
     if event:
-        alert_user(event, "systems")
+        alert_user(event, "systems", body, logger)
 
 def alert_user(event, department):
     user = get_user(event)
     print("FOUND USER: ", user)
+    if user not in bywaterbot_data["users"]:
+        print(f"User {user} not found in bywaterbot_data, defaulting to {DEFAULT_DEVOPS_ASSIGNEE}")
+        user = DEFAULT_DEVOPS_ASSIGNEE
+
     transports = bywaterbot_data["users"][user]
-    if transports["sms"]:
+    if "sms" in transports and transports["sms"]:
         sms = transports["sms"]
         say(text=f"I've alerted {user} via sms!")
 
@@ -721,24 +707,36 @@ def alert_user(event, department):
     if len(transports) == 0:
         say(text=f"{user} has not opted to receive alerts from me!")
 
+def give_karma(user, say, context):
+    """Award karma to a user or respond with a put‑down.
 
-@app.event("reaction_added")
-def handle_reaction_events(body, logger):
-    """Entry point for reaction events.
-
-    Delegates to ``handle_devops_fires`` to process fire‑emoji reactions.
+    Determines whether ``user`` refers to a Slack user ID or a plain string.
+    If it is a user, posts a kudos message with random pep talk lines.
+    Otherwise, sends a humorous put‑down.
 
     Args:
-        body: Event payload from Slack.
-        logger: Logger instance.
+        user: The target user identifier or name.
+        say: Function to send a response back to Slack.
+        context: Additional context (unused here).
     """
-    handle_devops_fires(body, logger)
+    is_user = False
+
+    if user.startswith("<@"):
+        is_user = True
+    elif (not user.startswith("<@")) and user.lower() in name_to_id:
+        user = f"<@{name_to_id[user.lower()]}>"
+        is_user = True
+
+    if is_user:
+        app.client.chat_postMessage(
+            channel="#kudos",
+            text=f"{user} {random.choice(karma1)} {random.choice(karma2)} {random.choice(karma3)} {random.choice(karma4)}",
+        )
+    else:
+        say(text=f"Who doesn't love {user}, right?")
 
 
-# @app.event("message")
-# def handle_message_events(body, logger):
-#    print("MESSAGE EVENT")
-#    print(body)
+
 
 # Start your app
 if __name__ == "__main__":

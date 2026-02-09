@@ -68,20 +68,25 @@ def get_weekday_duty(department):
 
         # Get events for the current hour only
         now = datetime.datetime.utcnow()
-        start_of_hour = now.replace(minute=0, second=0, microsecond=0)
-        start_of_next_hour = start_of_hour + timedelta(hours=1)
+
+#FIXME: list() will only return events that start after timeMin and end before timeMax
+# This means that if an event starts before timeMin and ends after timeMax, it will not be returned
+# https://chatgpt.com/share/6985f4b9-5208-800c-be86-adbf8c9cb9ae
+
+        start_of_yesterday = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=1)
+        end_of_tomorrow = now.replace(hour=23, minute=59, second=59, microsecond=999999) + timedelta(days=1)
         
-        time_min = start_of_hour.isoformat() + "Z"
-        time_max = start_of_next_hour.isoformat() + "Z"
+        time_min = start_of_yesterday.isoformat() + "Z"
+        time_max = end_of_tomorrow.isoformat() + "Z"
         
-        print(f"Getting events for {calendar_name} from {start_of_hour} to {start_of_next_hour} UTC")
+        print(f"Getting events for {calendar_name} from {start_of_yesterday} to {end_of_tomorrow} UTC")
         events_result = (
             service.events()
             .list(
                 calendarId=fire_duty_calendar_id,
                 timeMin=time_min,
                 timeMax=time_max,
-                maxResults=10,
+                maxResults=100,
                 singleEvents=True,
                 orderBy="startTime",
             )
@@ -94,20 +99,21 @@ def get_weekday_duty(department):
             return None
 
         # Find the event that overlaps with the current time
-        now_str = now.strftime("%Y-%m-%dT%H:%M:%S")
+        current_dt = datetime.datetime.now(datetime.timezone.utc)
+        print("Current time:", current_dt)
         for event in events:
-            start = event["start"].get("dateTime", event["start"].get("date"))
-            end = event["end"].get("dateTime", event["end"].get("date"))
+            start_of_event = event["start"].get("dateTime", event["start"].get("date"))
+            end_of_event = event["end"].get("dateTime", event["end"].get("date"))
+
+            print(f"Event: {event['summary']} ({start_of_event} to {end_of_event})")
             
             # For all-day events, compare dates; for timed events, compare timestamps
-            if "T" in start:  # Timed event
-                if start <= now_str <= end:
-                    print(f"Found current event: {event['summary']} ({start} to {end})")
-                    return event
-            else:  # All-day event
-                today = now.strftime("%Y-%m-%d")
-                if start <= today < end:
-                    print(f"Found current event: {event['summary']} ({start} to {end})")
+            if "T" in start_of_event:  # Timed event
+                start_dt = datetime.datetime.fromisoformat(start_of_event)
+                end_dt = datetime.datetime.fromisoformat(end_of_event)
+                
+                if start_dt <= current_dt <= end_dt:
+                    print(f"Found current event: {event['summary']} ({start_of_event} to {end_of_event})")
                     return event
 
         print("No event found for current time.")
@@ -196,11 +202,18 @@ def get_user(event):
     """
     if event:
         summary = event["summary"]
+        print("get_user from event: ", summary)
 
-        result = re.search("(.+) - Weekend Help Desk.*", summary, re.IGNORECASE)
-        print("USER: ", result.group(1))
+        if result := re.search(r"(.+) - Weekend Help Desk.*", summary, re.IGNORECASE):
+            name = result.group(1)
+        elif result := re.search(r"Fire Duty: (.+)", summary, re.IGNORECASE):
+            name = result.group(1)
+        else:
+            print(f"Warning: Could not parse user from event summary: {summary}")
+            return None
 
-        return result.group(1)
+        print("USER: ", name)
+        return name
 
 # Global credential cache to prevent race conditions
 _cached_creds = None
