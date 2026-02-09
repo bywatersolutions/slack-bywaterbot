@@ -678,34 +678,55 @@ def handle_devops_fires(body, logger):
         message = twilio_client.messages.create(body=body, from_=twilio_phone, to=sms)
         print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
 
+    message_ts = None
+    if event.get("type") == "reaction_added":
+        message_ts = event.get("item", {}).get("ts")
+
     event = get_weekday_duty("dev")
     if event:
-        alert_user(event, "dev", body, logger)
+        alert_user(event, "dev", channel_id, message_ts, body, logger)
 
     event = get_weekday_duty("systems")
     if event:
-        alert_user(event, "systems", body, logger)
+        alert_user(event, "systems", channel_id, message_ts, body, logger)
 
-def alert_user(event, department):
+def alert_user(event, department, channel_id, message_ts, body, logger):
     user = get_user(event)
     print("FOUND USER: ", user)
+    
+    # Check if user exists in our data
     if user not in bywaterbot_data["users"]:
-        print(f"User {user} not found in bywaterbot_data, defaulting to {DEFAULT_DEVOPS_ASSIGNEE}")
-        user = DEFAULT_DEVOPS_ASSIGNEE
+        print(f"User {user} not found in bywaterbot_data")
+        # Optional: post to thread that user wasn't found?
+        app.client.chat_postMessage(
+            channel=channel_id,
+            text=f"I found {user} on the calendar but don't have their contact info!",
+            thread_ts=message_ts
+        )
+        return
 
     transports = bywaterbot_data["users"][user]
     if "sms" in transports and transports["sms"]:
         sms = transports["sms"]
-        say(text=f"I've alerted {user} via sms!")
+        app.client.chat_postMessage(
+            channel=channel_id,
+            text=f"I've alerted {user} via sms!",
+            thread_ts=message_ts
+        )
 
-        body = f"Fire! Fire! {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
+        # Construct a generic fire message since we don't have ticket details here
+        sms_body = f"Fire! Fire! There is a fire in #{department} that needs your attention."
         message = twilio_client.messages.create(
-            body=body, from_=twilio_phone, to=sms
+            body=sms_body, from_=twilio_phone, to=sms
         )
         print(message.sid)
 
     if len(transports) == 0:
-        say(text=f"{user} has not opted to receive alerts from me!")
+        app.client.chat_postMessage(
+            channel=channel_id,
+            text=f"{user} has not opted to receive alerts from me!",
+            thread_ts=message_ts
+        )
 
 def give_karma(user, say, context):
     """Award karma to a user or respond with a put‑down.
