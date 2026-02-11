@@ -13,7 +13,8 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 # Import configuration and handlers
-from config import load_config, refresh_data, get_quote
+from config import load_config, refresh_data
+from bot_functions import get_quote
 
 from calendar_functions import get_google_creds
 from devops_handlers import register_devops_handlers

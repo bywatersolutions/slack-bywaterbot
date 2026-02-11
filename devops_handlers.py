@@ -113,38 +113,36 @@ def register_devops_handlers(app):
 
                 assignee = get_devops_fire_duty_asignee(app, channel_id)
 
-        if assignee:
-            print(f"{assignee} is on duty for devops")
+                if assignee:
+                    print(f"{assignee} is on duty for devops")
 
-            if assignee not in bywaterbot_data["users"]:
-                body_text = f"There is a fire in #devops assigned to {assignee}: {text}"
-                assignee = DEFAULT_DEVOPS_ASSIGNEE
-            else:  # User cannot be contacted
-                body_text = f"There is a fire in #devops: {text}"
+                    if assignee not in bywaterbot_data["users"]:
+                        body_text = f"There is a fire in #devops assigned to {assignee}: {text}"
+                        assignee = DEFAULT_DEVOPS_ASSIGNEE
+                    else:  # User cannot be contacted
+                        body_text = f"There is a fire in #devops: {text}"
 
-            if assignee in bywaterbot_data["users"]:
-                transports = bywaterbot_data["users"][assignee]
-                print(f"TRANSPORTS: {transports}")
-                if transports.get("sms"):
-                    sms = transports["sms"]
-                    print(f"BODY: {body_text}")
-                    try:
-                        message = twilio_client.messages.create(body=body_text, from_=twilio_phone, to=sms)
-                        print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
-                    except Exception as e:
-                        print(f"Error sending SMS: {e}")
+                    if assignee in bywaterbot_data["users"]:
+                        transports = bywaterbot_data["users"][assignee]
+                        print(f"TRANSPORTS: {transports}")
+                        if transports.get("sms"):
+                            sms = transports["sms"]
+                            print(f"BODY: {body_text}")
+                            try:
+                                message = twilio_client.messages.create(body=body_text, from_=twilio_phone, to=sms)
+                                print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
+                            except Exception as e:
+                                print(f"Error sending SMS: {e}")
 
-        message_ts = None
-        if event.get("type") == "reaction_added":
-            message_ts = event.get("item", {}).get("ts")
+                message_ts = event.get("item", {}).get("ts")
 
-        event_dev = get_weekday_duty("dev")
-        if event_dev:
-            alert_user(event_dev, "dev", channel_id, message_ts, body, logger)
+                event_dev = get_weekday_duty("dev")
+                if event_dev:
+                    alert_user(event_dev, "dev", channel_id, message_ts, body, logger)
 
-        event_sys = get_weekday_duty("systems")
-        if event_sys:
-            alert_user(event_sys, "systems", channel_id, message_ts, body, logger)
+                event_sys = get_weekday_duty("systems")
+                if event_sys:
+                    alert_user(event_sys, "systems", channel_id, message_ts, body, logger)
 
     @app.event("reaction_added")
     def handle_reaction_events(body, logger):
