@@ -42,14 +42,17 @@ def register_karma_handlers(app):
 
         if is_user:
             try:
+                print("Giving karma to", user)
                 k1 = random.choice(karma1) if karma1 else "You rock!"
                 k2 = random.choice(karma2) if karma2 else ""
                 k3 = random.choice(karma3) if karma3 else ""
                 k4 = random.choice(karma4) if karma4 else ""
                 
+                message = f"{user} {k1} {k2} {k3} {k4}"
+                print("Posting message:", message)
                 app.client.chat_postMessage(
                     channel="#kudos",
-                    text=f"{user} {k1} {k2} {k3} {k4}",
+                    text=message,
                 )
             except Exception as e:
                 print(f"Error giving karma: {e}")
