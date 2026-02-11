@@ -11,7 +11,7 @@ import re
 import random
 import os
 from twilio.rest import Client
-from config import bywaterbot_data
+import config
 from bot_functions import get_name_to_id_mapping, get_karma_pep_talks, get_putdowns
 
 # Load karma pep talks from csv

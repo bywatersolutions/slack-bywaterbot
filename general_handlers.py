@@ -10,7 +10,7 @@ Contains message handlers for:
 """
 
 import os
-from config import bywaterbot_data, refresh_data
+import config
 from bot_functions import get_name_to_id_mapping, get_quote
 
 def register_general_handlers(app):
@@ -85,7 +85,7 @@ def register_general_handlers(app):
         if message.get("channel_type") != "im":
             return
 
-        if refresh_data():
+        if config.refresh_data():
             say("Successfully refreshed bywaterbot data!")
         else:
             say("Failed to refresh bywaterbot data.")

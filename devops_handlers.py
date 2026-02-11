@@ -6,9 +6,9 @@ Contains message handlers for:
 - Alerting users on Fire Duty
 """
 
+import config
 from calendar_functions import get_weekday_duty, get_user
 from bot_functions import get_devops_fire_duty_asignee, get_channel_id_by_name
-from config import bywaterbot_data, twilio_client, twilio_phone, DEFAULT_DEVOPS_ASSIGNEE
 
 def register_devops_handlers(app):
     
@@ -27,7 +27,7 @@ def register_devops_handlers(app):
         print("FOUND USER: ", user)
         
         # Check if user exists in our data
-        if user not in bywaterbot_data["users"]:
+        if user not in config.bywaterbot_data["users"]:
             print(f"User {user} not found in bywaterbot_data")
             # Optional: post to thread that user wasn't found?
             try:
@@ -38,9 +38,10 @@ def register_devops_handlers(app):
                 )
             except Exception as e:
                 print(f"Error posting to Slack: {e}")
-            return
 
-        transports = bywaterbot_data["users"][user]
+            return user
+
+        transports = config.bywaterbot_data["users"][user]
         if "sms" in transports and transports["sms"]:
             sms = transports["sms"]
             try:
@@ -52,15 +53,16 @@ def register_devops_handlers(app):
             except Exception as e:
                 print(f"Error posting to Slack: {e}")
 
-            # Construct a generic fire message since we don't have ticket details here
-            sms_body = f"Fire! Fire! There is a fire in #{department} that needs your attention."
-            try:
-                message = twilio_client.messages.create(
-                    body=sms_body, from_=twilio_phone, to=sms
-                )
-                print(message.sid)
-            except Exception as e:
-                print(f"Error sending SMS: {e}")
+            if config.twilio_client:
+                # Construct a generic fire message since we don't have ticket details here
+                sms_body = f"Fire! Fire! There is a fire in #{department} that needs your attention."
+                try:
+                    message = config.twilio_client.messages.create(
+                        body=sms_body, from_=config.twilio_phone, to=sms
+                    )
+                    print(message.sid)
+                except Exception as e:
+                    print(f"Error sending SMS: {e}")
 
         if len(transports) == 0:
             try:
@@ -116,33 +118,39 @@ def register_devops_handlers(app):
                 if assignee:
                     print(f"{assignee} is on duty for devops")
 
-                    if assignee not in bywaterbot_data["users"]:
+                    if assignee not in config.bywaterbot_data["users"]:
                         body_text = f"There is a fire in #devops assigned to {assignee}: {text}"
-                        assignee = DEFAULT_DEVOPS_ASSIGNEE
+                        assignee = config.DEFAULT_DEVOPS_ASSIGNEE
                     else:  # User cannot be contacted
                         body_text = f"There is a fire in #devops: {text}"
 
-                    if assignee in bywaterbot_data["users"]:
-                        transports = bywaterbot_data["users"][assignee]
+                    if assignee in config.bywaterbot_data["users"]:
+                        transports = config.bywaterbot_data["users"][assignee]
                         print(f"TRANSPORTS: {transports}")
                         if transports.get("sms"):
                             sms = transports["sms"]
                             print(f"BODY: {body_text}")
                             try:
-                                message = twilio_client.messages.create(body=body_text, from_=twilio_phone, to=sms)
-                                print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
+                                if config.twilio_client:
+                                    message = config.twilio_client.messages.create(body=body_text, from_=config.twilio_phone, to=sms)
+                                    print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
                             except Exception as e:
                                 print(f"Error sending SMS: {e}")
 
                 message_ts = event.get("item", {}).get("ts")
 
                 event_dev = get_weekday_duty("dev")
+
+                dev_user = None
                 if event_dev:
+                    dev_user = get_user(event_dev)
                     alert_user(event_dev, "dev", channel_id, message_ts, body, logger)
 
                 event_sys = get_weekday_duty("systems")
                 if event_sys:
-                    alert_user(event_sys, "systems", channel_id, message_ts, body, logger)
+                    sys_user = get_user(event_sys)
+                    if dev_user != sys_user:
+                        alert_user(event_sys, "systems", channel_id, message_ts, body, logger)
 
     @app.event("reaction_added")
     def handle_reaction_events(body, logger):

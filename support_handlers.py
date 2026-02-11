@@ -9,13 +9,12 @@ Contains message handlers for:
 - SMS relay (TEXT <user> <message>)
 """
 
-import re
-import os
-import json
-import requests
-import rt
 import pprint
-from config import bywaterbot_data, twilio_client, twilio_phone
+import requests
+import json
+import re
+
+import config
 from calendar_functions import get_weekend_duty, get_user
 
 pp = pprint.PrettyPrinter(indent=2)
@@ -199,18 +198,19 @@ def register_support_handlers(app):
             user = get_user(event)
             print("FOUND USER: ", user)
             
-            if user in bywaterbot_data["users"]:
-                transports = bywaterbot_data["users"][user]
+            if user in config.bywaterbot_data["users"]:
+                transports = config.bywaterbot_data["users"][user]
                 if transports.get("sms"):
                     sms = transports["sms"]
                     say(text=f"I've alerted {user} via sms!")
 
                     body = f"New {queue} ticket {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
                     try:
-                        message = twilio_client.messages.create(
-                            body=body, from_=twilio_phone, to=sms
-                        )
-                        print(message.sid)
+                        if config.twilio_client:
+                            message = config.twilio_client.messages.create(
+                                body=body, from_=config.twilio_phone, to=sms
+                            )
+                            print(message.sid)
                     except Exception as e:
                         print(f"Error sending SMS: {e}")
                         say(f"Failed to send SMS to {user}.")
@@ -237,21 +237,22 @@ def register_support_handlers(app):
             origin_user = "Unknown User"
 
         destination_user_found = False
-        for user in bywaterbot_data["users"]:
+        for user in config.bywaterbot_data["users"]:
             if message_text.startswith(user):
                 message_body = message_text.replace(user, "", 1).strip()
-                transports = bywaterbot_data["users"][user]
+                transports = config.bywaterbot_data["users"][user]
                 if transports.get("sms"):
                     sms = transports["sms"]
                     
                     body = f"You have a message from {origin_user} via Slack: {message_body}"
                     try:
-                        message = twilio_client.messages.create(
-                            body=body, from_=twilio_phone, to=sms
-                        )
-                        print(message.sid)
-                        destination_user_found = True
-                        say("Message sent!")
+                        if config.twilio_client:
+                            message = config.twilio_client.messages.create(
+                                body=body, from_=config.twilio_phone, to=sms
+                            )
+                            print(message.sid)
+                            destination_user_found = True
+                            say("Message sent!")
                     except Exception as e:
                         print(f"Twilio error: {e}")
                         say("Failed to send SMS via Twilio.")
