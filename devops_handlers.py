@@ -151,6 +151,12 @@ def register_devops_handlers(app):
                     sys_user = get_user(event_sys)
                     if dev_user != sys_user:
                         alert_user(event_sys, "systems", channel_id, message_ts, body, logger)
+                
+                app.client.chat_postMessage(
+                    channel=channel_id,
+                    text=f"Please tag this ticket with devops_fire.",
+                    thread_ts=message_ts
+                )
 
     @app.event("reaction_added")
     def handle_reaction_events(body, logger):
