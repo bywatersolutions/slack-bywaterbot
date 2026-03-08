@@ -21,12 +21,13 @@ bywaterbot_data = {}
 twilio_client = None
 twilio_phone = None
 
+
 def load_config():
     """Load bywaterbot_data and initialize environment variables and clients."""
     global bywaterbot_data, twilio_client, twilio_phone
 
     print("Loading configuration...")
-    
+
     # Initial load of bywaterbot_data
     bywaterbot_data = load_bywaterbot_data()
     pp.pprint(bywaterbot_data)
@@ -75,6 +76,7 @@ def load_config():
             print("Twilio client initialized")
     except Exception as e:
         print(f"Error initializing Twilio client: {e}")
+
 
 def refresh_data():
     """Refresh the bywaterbot_data by reloading it from the source."""

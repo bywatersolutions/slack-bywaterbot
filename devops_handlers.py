@@ -10,8 +10,9 @@ import config
 from calendar_functions import get_weekday_duty, get_user
 from bot_functions import get_devops_fire_duty_asignee, get_channel_id_by_name
 
+
 def register_devops_handlers(app):
-    
+
     # We need to get the channel ID on startup or when needed
     # Since app is passed in, we can get it here, but it might be better to get it lazily
     # For now, let's look it up when registering
@@ -25,7 +26,7 @@ def register_devops_handlers(app):
     def alert_user(event, department, channel_id, message_ts, body, logger):
         user = get_user(event)
         print("FOUND USER: ", user)
-        
+
         # Check if user exists in our data
         if user not in config.bywaterbot_data["users"]:
             print(f"User {user} not found in bywaterbot_data")
@@ -34,7 +35,7 @@ def register_devops_handlers(app):
                 app.client.chat_postMessage(
                     channel=channel_id,
                     text=f"I found {user} on the calendar but don't have their contact info!",
-                    thread_ts=message_ts
+                    thread_ts=message_ts,
                 )
             except Exception as e:
                 print(f"Error posting to Slack: {e}")
@@ -48,7 +49,7 @@ def register_devops_handlers(app):
                 app.client.chat_postMessage(
                     channel=channel_id,
                     text=f"I've alerted {user} via sms!",
-                    thread_ts=message_ts
+                    thread_ts=message_ts,
                 )
             except Exception as e:
                 print(f"Error posting to Slack: {e}")
@@ -69,7 +70,7 @@ def register_devops_handlers(app):
                 app.client.chat_postMessage(
                     channel=channel_id,
                     text=f"{user} has not opted to receive alerts from me!",
-                    thread_ts=message_ts
+                    thread_ts=message_ts,
                 )
             except Exception as e:
                 print(f"Error posting to Slack: {e}")
@@ -103,7 +104,10 @@ def register_devops_handlers(app):
                     message_ts = event.get("item", {}).get("ts")
                     if message_ts:
                         response = app.client.conversations_history(
-                            channel=channel_id, inclusive=True, latest=message_ts, limit=1
+                            channel=channel_id,
+                            inclusive=True,
+                            latest=message_ts,
+                            limit=1,
                         )
                         messages = response.get("messages")
                         if messages:
@@ -119,7 +123,9 @@ def register_devops_handlers(app):
                     print(f"{assignee} is on duty for devops")
 
                     if assignee not in config.bywaterbot_data["users"]:
-                        body_text = f"There is a fire in #devops assigned to {assignee}: {text}"
+                        body_text = (
+                            f"There is a fire in #devops assigned to {assignee}: {text}"
+                        )
                         assignee = config.DEFAULT_DEVOPS_ASSIGNEE
                     else:  # User cannot be contacted
                         body_text = f"There is a fire in #devops: {text}"
@@ -132,8 +138,14 @@ def register_devops_handlers(app):
                             print(f"BODY: {body_text}")
                             try:
                                 if config.twilio_client:
-                                    message = config.twilio_client.messages.create(body=body_text, from_=config.twilio_phone, to=sms)
-                                    print(f"TWILIO SMS SENT TO {assignee}: {message.sid}")
+                                    message = config.twilio_client.messages.create(
+                                        body=body_text,
+                                        from_=config.twilio_phone,
+                                        to=sms,
+                                    )
+                                    print(
+                                        f"TWILIO SMS SENT TO {assignee}: {message.sid}"
+                                    )
                             except Exception as e:
                                 print(f"Error sending SMS: {e}")
 
@@ -150,12 +162,14 @@ def register_devops_handlers(app):
                 if event_sys:
                     sys_user = get_user(event_sys)
                     if dev_user != sys_user:
-                        alert_user(event_sys, "systems", channel_id, message_ts, body, logger)
-                
+                        alert_user(
+                            event_sys, "systems", channel_id, message_ts, body, logger
+                        )
+
                 app.client.chat_postMessage(
                     channel=channel_id,
                     text=f"Please tag this ticket with devops_fire.",
-                    thread_ts=message_ts
+                    thread_ts=message_ts,
                 )
 
     @app.event("reaction_added")

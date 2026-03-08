@@ -19,21 +19,26 @@ from calendar_functions import get_weekend_duty, get_user
 
 pp = pprint.PrettyPrinter(indent=2)
 
+
 def register_support_handlers(app):
-    
+
     # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
     @app.message(re.compile(r"(bug|bz)\s*([0-9]+)"))
     def handle_koha_bug(say, context):
         """Lookup a Koha bug and post its details."""
         bug = context["matches"][1]
         try:
-            url = requests.get(f"https://bugs.koha-community.org/bugzilla3/rest/bug/{bug}")
+            url = requests.get(
+                f"https://bugs.koha-community.org/bugzilla3/rest/bug/{bug}"
+            )
             text = url.text
             data = json.loads(text)
 
             summary = data["bugs"][0]["summary"]
             status = data["bugs"][0]["status"]
-            bugzilla = f"https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id={bug}"
+            bugzilla = (
+                f"https://bugs.koha-community.org/bugzilla3/show_bug.cgi?id={bug}"
+            )
 
             print(f"BUG: {bug}")
             print(f"SUMMARY: {summary}")
@@ -67,7 +72,9 @@ def register_support_handlers(app):
             )
         except Exception as e:
             print(f"Error fetching bug {bug}: {e}")
-            say(f"I couldn't find details for bug {bug}. It might not exist or the API is down.")
+            say(
+                f"I couldn't find details for bug {bug}. It might not exist or the API is down."
+            )
 
     # RT links, recognizes "ticket 1234" and "rt 1234"
     @app.message(re.compile(r"(ticket|rt)\s*([0-9]+)"))
@@ -83,11 +90,13 @@ def register_support_handlers(app):
             return
 
         try:
-            tracker = rt.Rt("https://ticket.bywatersolutions.com/REST/1.0/", rt_user, rt_pass)
+            tracker = rt.Rt(
+                "https://ticket.bywatersolutions.com/REST/1.0/", rt_user, rt_pass
+            )
             tracker.login()
 
             tickets = tracker.search(Queue=rt.ALL_QUEUES, raw_query=f"id='{ticket_id}'")
-            
+
             if not tickets:
                 say(f"Ticket {ticket_id} not found.")
                 return
@@ -119,7 +128,10 @@ def register_support_handlers(app):
             blocks = [
                 {
                     "type": "header",
-                    "text": {"type": "plain_text", "text": f"Ticket {ticket_id}: {subject}"},
+                    "text": {
+                        "type": "plain_text",
+                        "text": f"Ticket {ticket_id}: {subject}",
+                    },
                 },
                 {
                     "type": "section",
@@ -135,7 +147,10 @@ def register_support_handlers(app):
                     "elements": [
                         {
                             "type": "button",
-                            "text": {"type": "plain_text", "text": f"View ticket {ticket_id}"},
+                            "text": {
+                                "type": "plain_text",
+                                "text": f"View ticket {ticket_id}",
+                            },
                             "style": "primary",
                             "value": f"View ticket {ticket_id}",
                             "url": f"{rt_url}",
@@ -187,8 +202,12 @@ def register_support_handlers(app):
     def handle_ticket_created(say, context):
         """Notify weekend duty on ticket creation."""
         queue = context["matches"][1]
-        ticket = context["matches"][2] # Corrected index from original code which had [1] for both
-        description = context["matches"][3] # Corrected index from original code which had [2]
+        ticket = context["matches"][
+            2
+        ]  # Corrected index from original code which had [1] for both
+        description = context["matches"][
+            3
+        ]  # Corrected index from original code which had [2]
 
         print(f"TICKET: {ticket}, QUEUE: {queue}, DESC: {description}")
 
@@ -197,7 +216,7 @@ def register_support_handlers(app):
             print(event)
             user = get_user(event)
             print("FOUND USER: ", user)
-            
+
             if user in config.bywaterbot_data["users"]:
                 transports = config.bywaterbot_data["users"][user]
                 if transports.get("sms"):
@@ -227,7 +246,7 @@ def register_support_handlers(app):
         """Relay a Slack message to a user via SMS."""
         message_text = context["matches"][0]
         sender = context["user_id"]
-        
+
         try:
             # Call the users.info method using the WebClient
             response = app.client.users_info(user=sender)
@@ -243,7 +262,7 @@ def register_support_handlers(app):
                 transports = config.bywaterbot_data["users"][user]
                 if transports.get("sms"):
                     sms = transports["sms"]
-                    
+
                     body = f"You have a message from {origin_user} via Slack: {message_body}"
                     try:
                         if config.twilio_client:
@@ -258,8 +277,8 @@ def register_support_handlers(app):
                         say("Failed to send SMS via Twilio.")
                 else:
                     say(f"{user} has no SMS number configured.")
-                    destination_user_found = True # User found but no SMS
+                    destination_user_found = True  # User found but no SMS
                 break
-        
+
         if not destination_user_found:
-             say("I was unable to find someone matching that user.")
+            say("I was unable to find someone matching that user.")

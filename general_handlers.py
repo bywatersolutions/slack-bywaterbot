@@ -13,8 +13,8 @@ import os
 import config
 from bot_functions import get_name_to_id_mapping, get_quote
 
+
 def register_general_handlers(app):
-    
     @app.message("help")
     def message_help(message, say):
         """List bot capabilities (DM only)."""

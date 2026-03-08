@@ -22,6 +22,7 @@ from general_handlers import register_general_handlers
 from karma_handlers import register_karma_handlers
 from support_handlers import register_support_handlers
 
+
 def run_scheduler():
     """Run the scheduler in a background thread."""
     # Initial refresh to ensure we have fresh data on startup
@@ -53,7 +54,7 @@ if __name__ == "__main__":
     # Give a quote on startup logic (commented out in original, kept for reference)
     # quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
     # quote = get_quote(url=quotes_csv_url)
-    
+
     # Initialize Google Calendar credentials
     print("Initializing Google Calendar credentials...")
     try:

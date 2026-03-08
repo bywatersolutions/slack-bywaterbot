@@ -25,14 +25,14 @@ if karma_csv_url:
 
 putdowns = get_putdowns()
 
-def register_karma_handlers(app):
 
+def register_karma_handlers(app):
     def give_karma(user, say, context):
         """Award karma to a user or respond with a put‑down."""
-        
+
         # We need name_to_id mapping for finding user IDs from names
         name_to_id, _ = get_name_to_id_mapping(app)
-        
+
         is_user = False
         if user.startswith("<@"):
             is_user = True
@@ -47,7 +47,7 @@ def register_karma_handlers(app):
                 k2 = random.choice(karma2) if karma2 else ""
                 k3 = random.choice(karma3) if karma3 else ""
                 k4 = random.choice(karma4) if karma4 else ""
-                
+
                 message = f"{user} {k1} {k2} {k3} {k4}"
                 print("Posting message:", message)
                 app.client.chat_postMessage(
@@ -69,7 +69,7 @@ def register_karma_handlers(app):
             give_karma(user, say, context)
 
     # Handle individual karma
-    # Regex designed to capture `user++` or `user ++` but NOT things like `C++` ideally, 
+    # Regex designed to capture `user++` or `user ++` but NOT things like `C++` ideally,
     # though the original regex was quite broad: (\S*)(\s?\+\+\s?)(.*)?
     @app.message(re.compile(r"(\S*)(\s?\+\+\s?)(.*)?"))
     def handle_individual_karma(say, context):
@@ -83,7 +83,7 @@ def register_karma_handlers(app):
         """Handle negative karma decrements."""
         user = context["matches"][0]
         name_to_id, _ = get_name_to_id_mapping(app)
-        
+
         is_user = False
         if user.startswith("<@"):
             is_user = True
@@ -102,7 +102,7 @@ def register_karma_handlers(app):
         """Refresh the cached karma pep talks."""
         if message.get("channel_type") != "im":
             return
-        
+
         global karma1, karma2, karma3, karma4
         say(f"Sure thing!!")
         try:
