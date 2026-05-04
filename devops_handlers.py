@@ -23,7 +23,7 @@ def register_devops_handlers(app):
         print(f"Error getting devops channel ID: {e}")
         devops_channel_id = None
 
-    def alert_user(event, department, channel_id, message_ts, body, logger):
+    def alert_user(event, department, channel_id, message_ts, body, logger, permalink=None):
         user = get_user(event)
         print("FOUND USER: ", user)
 
@@ -57,6 +57,8 @@ def register_devops_handlers(app):
             if config.twilio_client:
                 # Construct a generic fire message since we don't have ticket details here
                 sms_body = f"Fire! Fire! There is a fire in #{department} that needs your attention."
+                if permalink:
+                    sms_body += f" {permalink}"
                 try:
                     message = config.twilio_client.messages.create(
                         body=sms_body, from_=config.twilio_phone, to=sms
@@ -99,9 +101,21 @@ def register_devops_handlers(app):
             reaction = event.get("reaction")
             print("REACTION: ", reaction)
             if reaction == "fire":
+                message_ts = event.get("item", {}).get("ts")
+
+                permalink = None
+                if message_ts:
+                    try:
+                        permalink_response = app.client.chat_getPermalink(
+                            channel=channel_id, message_ts=message_ts
+                        )
+                        permalink = permalink_response.get("permalink")
+                        print(f"Permalink: {permalink}")
+                    except Exception as e:
+                        print(f"Error getting permalink: {e}")
+
                 # Get the message text from the reaction
                 try:
-                    message_ts = event.get("item", {}).get("ts")
                     if message_ts:
                         response = app.client.conversations_history(
                             channel=channel_id,
@@ -130,6 +144,9 @@ def register_devops_handlers(app):
                     else:  # User cannot be contacted
                         body_text = f"There is a fire in #devops: {text}"
 
+                    if permalink:
+                        body_text += f" {permalink}"
+
                     if assignee in config.bywaterbot_data["users"]:
                         transports = config.bywaterbot_data["users"][assignee]
                         print(f"TRANSPORTS: {transports}")
@@ -149,21 +166,23 @@ def register_devops_handlers(app):
                             except Exception as e:
                                 print(f"Error sending SMS: {e}")
 
-                message_ts = event.get("item", {}).get("ts")
-
                 event_dev = get_weekday_duty("dev")
 
                 dev_user = None
                 if event_dev:
                     dev_user = get_user(event_dev)
-                    alert_user(event_dev, "dev", channel_id, message_ts, body, logger)
+                    alert_user(
+                        event_dev, "dev", channel_id, message_ts, body, logger,
+                        permalink=permalink,
+                    )
 
                 event_sys = get_weekday_duty("systems")
                 if event_sys:
                     sys_user = get_user(event_sys)
                     if dev_user != sys_user:
                         alert_user(
-                            event_sys, "systems", channel_id, message_ts, body, logger
+                            event_sys, "systems", channel_id, message_ts, body, logger,
+                            permalink=permalink,
                         )
 
                 app.client.chat_postMessage(
