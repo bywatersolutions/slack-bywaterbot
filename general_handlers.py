@@ -33,7 +33,9 @@ def register_general_handlers(app):
             "* `test sms <user>`: Send test SMS\n"
             "* `TEXT <user> <message>`: Send SMS\n"
             "* `(user1 user2)++`: Group karma\n"
-            "* `user++` or `user--`: Individual karma"
+            "* `user++` or `user--`: Individual karma\n"
+            "* `innreach partners`: List INN-Reach partners\n"
+            "* `rapido partners`: List Rapido partners"
         )
         say(text)
 

@@ -21,6 +21,7 @@ from devops_handlers import register_devops_handlers
 from general_handlers import register_general_handlers
 from karma_handlers import register_karma_handlers
 from support_handlers import register_support_handlers
+from partner_handlers import register_partner_handlers
 
 
 def run_scheduler():
@@ -68,6 +69,7 @@ if __name__ == "__main__":
     register_karma_handlers(app)
     register_support_handlers(app)
     register_devops_handlers(app)
+    register_partner_handlers(app)
 
     # 6. Start the App
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
