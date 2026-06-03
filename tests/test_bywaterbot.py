@@ -723,3 +723,97 @@ class TestSupportHandlers:
         say.assert_called_once()
         assert "sent" in say.call_args[0][0].lower()
         config.twilio_client.messages.create.assert_called_once()
+
+
+# ---------------------------------------------------------------------------
+# partner_handlers tests
+# ---------------------------------------------------------------------------
+
+from partner_handlers import PARTNERS
+
+
+class TestPartnerHandlers:
+    def _register(self):
+        from partner_handlers import register_partner_handlers
+
+        app = MagicMock()
+        handlers = {}
+
+        def capture_message(pattern):
+            def decorator(fn):
+                key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+                handlers[key] = fn
+                return fn
+            return decorator
+
+        app.message = capture_message
+        register_partner_handlers(app)
+        return app, handlers
+
+    def test_innreach_partners(self):
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("innreach",)}
+
+        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler(say, context)
+
+        say.assert_called_once()
+        text = say.call_args[1]["text"]
+        assert "INN-Reach Partners" in text
+        assert "(7)" in text
+        for partner in PARTNERS["innreach"]:
+            assert partner in text
+
+    def test_rapido_partners(self):
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("rapido",)}
+
+        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler(say, context)
+
+        say.assert_called_once()
+        text = say.call_args[1]["text"]
+        assert "Rapido Partners" in text
+        assert "(4)" in text
+        for partner in PARTNERS["rapido"]:
+            assert partner in text
+
+    def test_partners_sorted_alphabetically(self):
+        for product, partners in PARTNERS.items():
+            assert partners == sorted(partners), f"{product} partners not sorted"
+
+    def test_innreach_label_formatting(self):
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("innreach",)}
+
+        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler(say, context)
+
+        text = say.call_args[1]["text"]
+        # Should use "INN-Reach" not "innreach"
+        assert "INN-Reach" in text
+
+    def test_rapido_label_formatting(self):
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("rapido",)}
+
+        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler(say, context)
+
+        text = say.call_args[1]["text"]
+        assert "Rapido" in text
+
+    def test_output_uses_bullet_points(self):
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("rapido",)}
+
+        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler(say, context)
+
+        text = say.call_args[1]["text"]
+        assert text.count("•") == len(PARTNERS["rapido"])
