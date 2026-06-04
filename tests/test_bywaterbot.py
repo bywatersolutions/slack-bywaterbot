@@ -755,7 +755,7 @@ class TestPartnerHandlers:
         say = MagicMock()
         context = {"matches": ("innreach",)}
 
-        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler = handlers[r"(innreach|rapido)\s+partners"]
         handler(say, context)
 
         say.assert_called_once()
@@ -770,7 +770,7 @@ class TestPartnerHandlers:
         say = MagicMock()
         context = {"matches": ("rapido",)}
 
-        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler = handlers[r"(innreach|rapido)\s+partners"]
         handler(say, context)
 
         say.assert_called_once()
@@ -789,7 +789,7 @@ class TestPartnerHandlers:
         say = MagicMock()
         context = {"matches": ("innreach",)}
 
-        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler = handlers[r"(innreach|rapido)\s+partners"]
         handler(say, context)
 
         text = say.call_args[1]["text"]
@@ -801,7 +801,7 @@ class TestPartnerHandlers:
         say = MagicMock()
         context = {"matches": ("rapido",)}
 
-        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler = handlers[r"(innreach|rapido)\s+partners"]
         handler(say, context)
 
         text = say.call_args[1]["text"]
@@ -812,8 +812,8 @@ class TestPartnerHandlers:
         say = MagicMock()
         context = {"matches": ("rapido",)}
 
-        handler = handlers[r"^(innreach|rapido)\s+partners$"]
+        handler = handlers[r"(innreach|rapido)\s+partners"]
         handler(say, context)
 
         text = say.call_args[1]["text"]
-        assert text.count("•") == len(PARTNERS["rapido"])
+        assert text.count("* ") == len(PARTNERS["rapido"])

@@ -30,7 +30,7 @@ PARTNERS = {
 
 def register_partner_handlers(app):
 
-    @app.message(re.compile(r"^(innreach|rapido)\s+partners$", re.IGNORECASE))
+    @app.message(re.compile(r"(innreach|rapido)\s+partners", re.IGNORECASE))
     def handle_partners(say, context):
         """List partners for INN-Reach or Rapido."""
         product = context["matches"][0].lower()
@@ -38,7 +38,7 @@ def register_partner_handlers(app):
         label = "INN-Reach" if product == "innreach" else "Rapido"
 
         lines = [f"*{label} Partners ({len(partners)}):*"]
-        for p in partners:
-            lines.append(f"• {p}")
+        for p in sorted(partners):
+            lines.append(f"* {p}")
 
         say(text="\n".join(lines))
