@@ -161,8 +161,9 @@ def register_devops_alerts_handlers(app):
     def handle_alerts_message(body, logger):
         event = body.get("event", {})
 
-        # Only act on #devops-alerts.
-        if alerts_channel_id and event.get("channel") != alerts_channel_id:
+        # Only act on #devops-alerts. If we couldn't resolve that channel at
+        # startup, do nothing rather than nag on messages from every channel.
+        if not alerts_channel_id or event.get("channel") != alerts_channel_id:
             return
 
         # Never nag ourselves into a loop.
