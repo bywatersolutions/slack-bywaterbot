@@ -21,6 +21,14 @@ This bot has a number of words and phrases it listens for
 * "Quote Please" - Bot will give you a quote from our quotes file
 * "Refresh Karma" - Bot will download the latest version of the pep talk data
 
+### DevOps alert acknowledgements
+
+The bot watches `#devops-alerts` for failure posts ( the danger-colored messages
+our GitHub Actions and the custom rebaser send ). When it sees one, it DMs the
+on-call person an Acknowledge button and keeps re-sending that DM every
+`DEVOPS_ALERT_NAG_MINUTES` minutes until the button is clicked. Successes posted
+to the channel are ignored. The bot must be invited to `#devops-alerts`.
+
 ### Dependencies
 
 * Python 3 and dependencies
@@ -44,6 +52,8 @@ This project uses a number of environment variables to function:
 * TWILIO_ACCOUNT_SID - SID for the Twilio account to be used ( provided by Twilio )
 * TWILIO_AUTH_TOKEN - Authentication token for the Twilio account ot be used ( provided by Twilio )
 * TWILIO_PHONE - Outgoing Twilio phone number ( e.g. +11234567890 )
+* DEVOPS_ALERT_DM_USER - Who to nag about #devops-alerts failures ( defaults to the devops fire-duty default, "Kyle" )
+* DEVOPS_ALERT_NAG_MINUTES - Minutes between un-acknowledged DM reminders ( defaults to 15 )
 
 Check out https://slack.dev/bolt-python/tutorial/getting-started to see
 how to set up the Slack tokens.
@@ -63,6 +73,7 @@ how to set up the Slack tokens.
 
 * channels:history
 * chat:write
+* im:write
 * groups:history
 * im:history
 * mpim:history

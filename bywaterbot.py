@@ -18,6 +18,7 @@ from bot_functions import get_quote
 
 from calendar_functions import get_google_creds
 from devops_handlers import register_devops_handlers
+from devops_alerts_handlers import register_devops_alerts_handlers
 from general_handlers import register_general_handlers
 from karma_handlers import register_karma_handlers
 from support_handlers import register_support_handlers
@@ -69,6 +70,7 @@ if __name__ == "__main__":
     register_karma_handlers(app)
     register_support_handlers(app)
     register_devops_handlers(app)
+    register_devops_alerts_handlers(app)
     register_partner_handlers(app)
 
     # 6. Start the App
