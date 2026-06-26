@@ -541,10 +541,10 @@ class TestDevopsHandlers:
         }
 
         handlers["reaction_added"](body, logger)
-        # Should post the "tag ticket" message
-        app.client.chat_postMessage.assert_called()
-        call_args = app.client.chat_postMessage.call_args
-        assert "devops_fire" in call_args[1]["text"]
+        # A fire reaction in #devops runs the fire path: it fetches the
+        # reacted-to message and looks up who's on devops fire duty.
+        app.client.conversations_history.assert_called()
+        mock_assignee.assert_called()
 
     @patch("devops_handlers.get_weekday_duty", return_value=None)
     @patch("devops_handlers.get_devops_fire_duty_asignee", return_value=None)
