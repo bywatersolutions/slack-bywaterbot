@@ -31,6 +31,8 @@ def register_general_handlers(app):
             "* `bug 1234` or `bz 1234`: Look up Koha bug\n"
             "* `branches <bug_id> [shortname]`: Find branches for a bug\n"
             "* `test sms <user>`: Send test SMS\n"
+            "* `test weekend duty`: Dry-run the weekend-duty alert (no SMS)\n"
+            "* `test weekend duty sms`: Send a real test SMS to the on-duty person\n"
             "* `TEXT <user> <message>`: Send SMS\n"
             "* `(user1 user2)++`: Group karma\n"
             "* `user++` or `user--`: Individual karma\n"

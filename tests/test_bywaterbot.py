@@ -623,6 +623,9 @@ class TestSupportHandlers:
         from support_handlers import register_support_handlers
 
         app = MagicMock()
+        app.client.conversations_list.return_value = {
+            "channels": [{"name": "tickets", "id": "CTICKETS"}]
+        }
         handlers = {}
 
         def capture_message(pattern):
@@ -786,6 +789,101 @@ class TestSupportHandlers:
         assert "Waterford Township Public Library" in body
         assert "Libby Authentication" in body
         assert "help.bywatersolutions.com" in body
+
+    _DUTY_TEST_PATTERN = r"test weekend duty(\s+sms)?"
+
+    @patch("support_handlers.get_user", return_value="Eric")
+    @patch(
+        "support_handlers.get_weekend_duty",
+        return_value={"summary": "Eric - Weekend Duty"},
+    )
+    def test_weekend_duty_test_dry_run(self, mock_duty, mock_user):
+        import config
+
+        config.bywaterbot_data = {"users": {"Eric": {"sms": "+17853046476"}}}
+        config.twilio_client = MagicMock()
+        config.twilio_phone = "+15559999999"
+
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": (None,)}
+        message = {"channel": "CTICKETS", "text": "test weekend duty"}
+
+        handlers[self._DUTY_TEST_PATTERN](say, context, message)
+
+        say.assert_called_once()
+        text = say.call_args[1]["text"]
+        assert "Eric" in text
+        assert "6476" in text  # masked number, last 4 digits
+        config.twilio_client.messages.create.assert_not_called()
+
+    @patch("support_handlers.get_user", return_value="Eric")
+    @patch(
+        "support_handlers.get_weekend_duty",
+        return_value={"summary": "Eric - Weekend Duty"},
+    )
+    def test_weekend_duty_test_sends_sms(self, mock_duty, mock_user):
+        import config
+
+        config.bywaterbot_data = {"users": {"Eric": {"sms": "+17853046476"}}}
+        config.twilio_client = MagicMock()
+        config.twilio_phone = "+15559999999"
+
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": (" sms",)}
+        message = {"channel": "CTICKETS", "text": "test weekend duty sms"}
+
+        handlers[self._DUTY_TEST_PATTERN](say, context, message)
+
+        config.twilio_client.messages.create.assert_called_once()
+        assert config.twilio_client.messages.create.call_args[1]["to"] == "+17853046476"
+        assert "Eric" in say.call_args[1]["text"]
+
+    @patch("support_handlers.get_user", return_value="Eric")
+    @patch(
+        "support_handlers.get_weekend_duty",
+        return_value={"summary": "Eric - Weekend Duty"},
+    )
+    def test_weekend_duty_test_ignored_outside_tickets(self, mock_duty, mock_user):
+        import config
+
+        config.bywaterbot_data = {"users": {"Eric": {"sms": "+17853046476"}}}
+        config.twilio_client = MagicMock()
+        config.twilio_phone = "+15559999999"
+
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": (" sms",)}
+        message = {"channel": "COTHER", "text": "test weekend duty sms"}
+
+        handlers[self._DUTY_TEST_PATTERN](say, context, message)
+
+        say.assert_not_called()
+        config.twilio_client.messages.create.assert_not_called()
+
+    @patch("support_handlers.get_user", return_value="Yannis")
+    @patch(
+        "support_handlers.get_weekend_duty",
+        return_value={"summary": "Yannis - Weekend Duty"},
+    )
+    def test_weekend_duty_test_no_sms_on_file(self, mock_duty, mock_user):
+        import config
+
+        config.bywaterbot_data = {"users": {"Eric": {"sms": "+17853046476"}}}
+        config.twilio_client = MagicMock()
+        config.twilio_phone = "+15559999999"
+
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": (" sms",)}
+        message = {"channel": "CTICKETS", "text": "test weekend duty sms"}
+
+        handlers[self._DUTY_TEST_PATTERN](say, context, message)
+
+        say.assert_called_once()
+        assert "no SMS number" in say.call_args[1]["text"]
+        config.twilio_client.messages.create.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

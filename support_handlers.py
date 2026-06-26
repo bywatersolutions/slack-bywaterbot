@@ -16,11 +16,42 @@ import re
 
 import config
 from calendar_functions import get_weekend_duty, get_user
+from bot_functions import get_channel_id_by_name
 
 pp = pprint.PrettyPrinter(indent=2)
 
 
+def resolve_weekend_duty_user():
+    """Return (event, user, sms) for whoever is on weekend duty now.
+
+    user is None if there's no current event or the summary can't be parsed;
+    sms is None if the user isn't in bywaterbot_data or has no number on file.
+    """
+    event = get_weekend_duty()
+    if not event:
+        return None, None, None
+    user = get_user(event)
+    sms = None
+    if user and user in config.bywaterbot_data.get("users", {}):
+        sms = config.bywaterbot_data["users"][user].get("sms")
+    return event, user, sms
+
+
+def _mask_sms(sms):
+    """Show only the last 4 digits of a phone number for display."""
+    return "***-***-" + sms[-4:] if sms else ""
+
+
 def register_support_handlers(app):
+
+    # Resolve the #tickets channel id once so the weekend-duty test command can
+    # restrict itself to that channel (fail closed if we can't find it)
+    try:
+        tickets_channel_id = get_channel_id_by_name(app=app, channel_name="tickets")
+        print(f"TICKETS CHANNEL ID: {tickets_channel_id}")
+    except Exception as e:
+        print(f"Error getting tickets channel ID: {e}")
+        tickets_channel_id = None
 
     # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
     @app.message(re.compile(r"(bug|bz)\s*([0-9]+)"))
@@ -261,6 +292,65 @@ def register_support_handlers(app):
                 say(text=f"{user} not found in my records for alerts.")
         else:
             print("No weekend duty event found.")
+
+    # Weekend duty self-test, #tickets only:
+    #   "test weekend duty"      -> dry run, report who'd be alerted, no SMS
+    #   "test weekend duty sms"  -> send a real test SMS to the on-duty person
+    @app.message(re.compile(r"test weekend duty(\s+sms)?", re.IGNORECASE))
+    def handle_weekend_duty_test(say, context, message):
+        """Exercise the weekend-duty alert path on demand from #tickets."""
+        if message.get("channel") != tickets_channel_id:
+            return
+
+        send_sms = bool(context["matches"][0])  # group 1 = " sms" when present
+        event, user, sms = resolve_weekend_duty_user()
+
+        if not event:
+            say(
+                text="🧪 Weekend duty test: no current weekend duty event on the calendar."
+            )
+            return
+
+        summary = event.get("summary", "")
+        if not user:
+            say(
+                text=f"🧪 Weekend duty test: found event '{summary}' but couldn't parse who's on duty."
+            )
+            return
+
+        if not sms:
+            say(
+                text=f"🧪 Weekend duty test: *{user}* is on duty (event: '{summary}'), but I have no SMS number for them."
+            )
+            return
+
+        masked = _mask_sms(sms)
+        if not send_sms:
+            say(
+                text=(
+                    f"🧪 Weekend duty test (dry run): *{user}* is on duty (event: '{summary}'). "
+                    f"✅ SMS on file: {masked}. I would alert them. No SMS sent."
+                )
+            )
+            return
+
+        body = "TEST: weekend-duty alert check from #tickets, please ignore."
+        sent = False
+        if config.twilio_client:
+            try:
+                msg = config.twilio_client.messages.create(
+                    body=body, from_=config.twilio_phone, to=sms
+                )
+                print(msg.sid)
+                sent = True
+            except Exception as e:
+                print(f"Error sending test SMS: {e}")
+        if sent:
+            say(text=f"🧪 Weekend duty test: sent a test SMS to *{user}* ({masked}).")
+        else:
+            say(
+                text=f"🧪 Weekend duty test: *{user}* is on duty ({masked}) but the SMS didn't send (Twilio not configured or errored)."
+            )
 
     # Text someone from slack
     @app.message(re.compile("TEXT (.*)"))
