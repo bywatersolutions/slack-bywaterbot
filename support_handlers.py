@@ -5,7 +5,7 @@ Contains message handlers for:
 - Koha Bugzilla lookup (bug/bz <id>)
 - RT Ticket lookup (ticket/rt <id>)
 - Bug branch lookup (branches <id>)
-- Ticket creation notifications (detects "Ticket Created:")
+- Ticket creation notifications (detects "*New Ticket:*" from Zoho Flow)
 - SMS relay (TEXT <user> <message>)
 """
 
@@ -197,19 +197,33 @@ def register_support_handlers(app):
             print(f"Error finding branches for bug {bug}: {e}")
             say(f"Error finding branches for bug {bug}.")
 
-    # ByWater Weekend Updater, sends sms to person on weekend duty
-    @app.message(re.compile(r"Ticket Created:\s+\*\[(.+)\]\*\s+(\d+)\s+-\s+(.*)"))
-    def handle_ticket_created(say, context):
+    # ByWater Weekend Updater, sends sms to person on weekend duty.
+    # Matches the "New Ticket" notifications Zoho Flow posts to #tickets, e.g.:
+    #   *New Ticket:* ZD #215390 - Libby Authentication
+    #   *Product:* Koha
+    #   *Partner:* Waterford Township Public Library
+    @app.message(re.compile(r"\*New Ticket:\*\s+ZD\s+#(\d+)\s+-\s+(.+)"))
+    def handle_ticket_created(say, context, message):
         """Notify weekend duty on ticket creation."""
-        queue = context["matches"][1]
-        ticket = context["matches"][
-            2
-        ]  # Corrected index from original code which had [1] for both
-        description = context["matches"][
-            3
-        ]  # Corrected index from original code which had [2]
+        ticket = context["matches"][0]
+        subject = context["matches"][1].strip()
 
-        print(f"TICKET: {ticket}, QUEUE: {queue}, DESC: {description}")
+        # Product, Partner and the case URL live on their own lines in the message
+        text = message.get("text", "")
+
+        product_match = re.search(r"\*Product:\*\s*(.+)", text)
+        product = product_match.group(1).strip() if product_match else ""
+
+        partner_match = re.search(r"\*Partner:\*\s*(.+)", text)
+        partner = partner_match.group(1).strip() if partner_match else ""
+
+        # The Zoho Desk case link, e.g. <https://help.bywatersolutions.com/.../dv/123>
+        url_match = re.search(r"<(https?://help\.bywatersolutions\.com/[^>]+)>", text)
+        ticket_url = url_match.group(1) if url_match else ""
+
+        print(
+            f"TICKET: {ticket}, PRODUCT: {product}, PARTNER: {partner}, SUBJECT: {subject}"
+        )
 
         event = get_weekend_duty()
         if event:
@@ -223,7 +237,15 @@ def register_support_handlers(app):
                     sms = transports["sms"]
                     say(text=f"I've alerted {user} via sms!")
 
-                    body = f"New {queue} ticket {ticket}: {description} https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket}"
+                    # Product/Partner can be blank on some tickets, so build the
+                    # message a piece at a time and only include what we have
+                    descriptor = f"{product} ticket" if product else "ticket"
+                    body = f"New {descriptor} ZD #{ticket}"
+                    if partner:
+                        body += f" for {partner}"
+                    body += f": {subject}"
+                    if ticket_url:
+                        body += f" {ticket_url}"
                     try:
                         if config.twilio_client:
                             message = config.twilio_client.messages.create(

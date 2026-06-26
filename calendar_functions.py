@@ -200,8 +200,9 @@ def get_weekend_duty():
 def get_user(event):
     """Extract the user name from a calendar event summary.
 
-    Parses the event summary string (typically "Name - Weekend Help Desk")
-    to isolate the assignee's name using regex.
+    Parses the event summary string (typically "Name - Weekend Duty", or
+    "Name - Holiday Weekend Duty (...)") to isolate the assignee's name using
+    regex.
 
     Args:
         event (dict): The Google Calendar event object containing a 'summary' key.
@@ -213,7 +214,11 @@ def get_user(event):
         summary = event["summary"]
         print("get_user from event: ", summary)
 
-        if result := re.search(r"(.+) - Weekend Help Desk.*", summary, re.IGNORECASE):
+        if result := re.search(
+            r"(.+?) - (?:Holiday )?Weekend (?:Help Desk|Duty)",
+            summary,
+            re.IGNORECASE,
+        ):
             name = result.group(1)
         elif result := re.search(r"Fire Duty: (.+)", summary, re.IGNORECASE):
             name = result.group(1)

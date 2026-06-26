@@ -39,16 +39,18 @@ class TestGetPutdowns:
 class TestGetQuote:
     @patch("bot_functions.urllib.request.urlretrieve")
     def test_prefix_replacement_pq(self, mock_retrieve):
-        csv_content = 'PQ: Some partner quote\n'
+        csv_content = "PQ: Some partner quote\n"
         with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch("bot_functions.random.choice", return_value="PQ: Some partner quote"):
+            with patch(
+                "bot_functions.random.choice", return_value="PQ: Some partner quote"
+            ):
                 result = get_quote("http://example.com/quotes.csv")
         assert result.startswith("Partner Quote: ")
         assert "PQ: " not in result
 
     @patch("bot_functions.urllib.request.urlretrieve")
     def test_prefix_replacement_haha(self, mock_retrieve):
-        csv_content = 'HAHA: Funny thing\n'
+        csv_content = "HAHA: Funny thing\n"
         with patch("builtins.open", mock_open(read_data=csv_content)):
             with patch("bot_functions.random.choice", return_value="HAHA: Funny thing"):
                 result = get_quote("http://example.com/quotes.csv")
@@ -56,7 +58,7 @@ class TestGetQuote:
 
     @patch("bot_functions.urllib.request.urlretrieve")
     def test_prefix_replacement_move(self, mock_retrieve):
-        csv_content = 'MOVE: Take a walk\n'
+        csv_content = "MOVE: Take a walk\n"
         with patch("builtins.open", mock_open(read_data=csv_content)):
             with patch("bot_functions.random.choice", return_value="MOVE: Take a walk"):
                 result = get_quote("http://example.com/quotes.csv")
@@ -64,25 +66,31 @@ class TestGetQuote:
 
     @patch("bot_functions.urllib.request.urlretrieve")
     def test_prefix_replacement_fact(self, mock_retrieve):
-        csv_content = 'FACT: The sky is blue\n'
+        csv_content = "FACT: The sky is blue\n"
         with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch("bot_functions.random.choice", return_value="FACT: The sky is blue"):
+            with patch(
+                "bot_functions.random.choice", return_value="FACT: The sky is blue"
+            ):
                 result = get_quote("http://example.com/quotes.csv")
         assert result == "Fun Fact! The sky is blue"
 
     @patch("bot_functions.urllib.request.urlretrieve")
     def test_prefix_replacement_koha(self, mock_retrieve):
-        csv_content = 'Koha sys pref: SomePref\n'
+        csv_content = "Koha sys pref: SomePref\n"
         with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch("bot_functions.random.choice", return_value="Koha sys pref: SomePref"):
+            with patch(
+                "bot_functions.random.choice", return_value="Koha sys pref: SomePref"
+            ):
                 result = get_quote("http://example.com/quotes.csv")
         assert "Koha SysPref Quiz!" in result
 
     @patch("bot_functions.urllib.request.urlretrieve")
     def test_no_prefix(self, mock_retrieve):
-        csv_content = 'Just a normal quote\n'
+        csv_content = "Just a normal quote\n"
         with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch("bot_functions.random.choice", return_value="Just a normal quote"):
+            with patch(
+                "bot_functions.random.choice", return_value="Just a normal quote"
+            ):
                 result = get_quote("http://example.com/quotes.csv")
         assert result == "Just a normal quote"
 
@@ -126,9 +134,7 @@ class TestGetDevopsFireDutyAssignee:
     def test_extracts_name_from_topic(self):
         app = MagicMock()
         app.client.conversations_info.return_value = {
-            "channel": {
-                "topic": {"value": "Fire duty is Kyle Hall\nSome other info"}
-            }
+            "channel": {"topic": {"value": "Fire duty is Kyle Hall\nSome other info"}}
         }
         result = get_devops_fire_duty_asignee(app, "C123")
         assert result == "Kyle Hall"
@@ -136,9 +142,7 @@ class TestGetDevopsFireDutyAssignee:
     def test_extracts_single_name(self):
         app = MagicMock()
         app.client.conversations_info.return_value = {
-            "channel": {
-                "topic": {"value": "Current duty is Kyle\nMore info"}
-            }
+            "channel": {"topic": {"value": "Current duty is Kyle\nMore info"}}
         }
         result = get_devops_fire_duty_asignee(app, "C123")
         assert result == "Kyle"
@@ -305,6 +309,18 @@ class TestGetUser:
         event = {"summary": "Kyle Hall - Weekend Help Desk Duty"}
         assert get_user(event) == "Kyle Hall"
 
+    def test_weekend_duty_format(self):
+        event = {"summary": "Eric - Weekend Duty"}
+        assert get_user(event) == "Eric"
+
+    def test_weekend_duty_full_name(self):
+        event = {"summary": "Andrew FH - Weekend Duty"}
+        assert get_user(event) == "Andrew FH"
+
+    def test_holiday_weekend_duty_format(self):
+        event = {"summary": "Donna - Holiday Weekend Duty (4th of July)"}
+        assert get_user(event) == "Donna"
+
     def test_fire_duty_format(self):
         event = {"summary": "Fire Duty: Kyle"}
         assert get_user(event) == "Kyle"
@@ -362,6 +378,7 @@ class TestGeneralHandlers:
             def decorator(fn):
                 handlers[pattern if isinstance(pattern, str) else pattern.pattern] = fn
                 return fn
+
             return decorator
 
         app.message = capture_message
@@ -429,6 +446,7 @@ class TestKarmaHandlers:
                 key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
                 handlers[key] = fn
                 return fn
+
             return decorator
 
         app.message = capture_message
@@ -497,6 +515,7 @@ class TestDevopsHandlers:
             def decorator(fn):
                 handlers[event_name] = fn
                 return fn
+
             return decorator
 
         app.event = capture_event
@@ -567,9 +586,7 @@ class TestDevopsHandlers:
     def test_fire_alerts_duty_user(self, mock_get_user, mock_assignee, mock_duty):
         import config
 
-        config.bywaterbot_data = {
-            "users": {"Kyle": {"sms": "+15551234567"}}
-        }
+        config.bywaterbot_data = {"users": {"Kyle": {"sms": "+15551234567"}}}
         config.twilio_client = MagicMock()
         config.twilio_phone = "+15559999999"
 
@@ -613,6 +630,7 @@ class TestSupportHandlers:
                 key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
                 handlers[key] = fn
                 return fn
+
             return decorator
 
         app.message = capture_message
@@ -622,9 +640,9 @@ class TestSupportHandlers:
     @patch("support_handlers.requests.get")
     def test_handle_koha_bug(self, mock_get):
         mock_response = MagicMock()
-        mock_response.text = json.dumps({
-            "bugs": [{"summary": "Fix login", "status": "NEW"}]
-        })
+        mock_response.text = json.dumps(
+            {"bugs": [{"summary": "Fix login", "status": "NEW"}]}
+        )
         mock_get.return_value = mock_response
 
         app, handlers = self._register()
@@ -724,6 +742,51 @@ class TestSupportHandlers:
         assert "sent" in say.call_args[0][0].lower()
         config.twilio_client.messages.create.assert_called_once()
 
+    def test_new_ticket_regex_matches_zoho_format(self):
+        pattern = re.compile(r"\*New Ticket:\*\s+ZD\s+#(\d+)\s+-\s+(.+)")
+        m = pattern.search("*New Ticket:* ZD #215390 - Libby Authentication")
+        assert m is not None
+        assert m.group(1) == "215390"
+        assert m.group(2) == "Libby Authentication"
+
+    @patch("support_handlers.get_user", return_value="Eric")
+    @patch(
+        "support_handlers.get_weekend_duty",
+        return_value={"summary": "Eric - Weekend Duty"},
+    )
+    def test_handle_ticket_created_alerts_duty_user(self, mock_duty, mock_user):
+        import config
+
+        config.bywaterbot_data = {"users": {"Eric": {"sms": "+15551234567"}}}
+        config.twilio_client = MagicMock()
+        config.twilio_phone = "+15559999999"
+
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("215390", "Libby Authentication")}
+        message = {
+            "text": (
+                "*New Ticket:* ZD #215390 - Libby Authentication\n"
+                "*Product:* Koha\n"
+                "*Partner:* Waterford Township Public Library\n"
+                "*Criticality:* Workflow blocker\n"
+                "<https://help.bywatersolutions.com/support/bywatersolutions/"
+                "ShowHomePage.do#Cases/dv/1025376000029707268>"
+            )
+        }
+
+        handler = handlers[r"\*New Ticket:\*\s+ZD\s+#(\d+)\s+-\s+(.+)"]
+        handler(say, context, message)
+
+        say.assert_called_once()
+        assert "Eric" in say.call_args[1]["text"]
+        config.twilio_client.messages.create.assert_called_once()
+        body = config.twilio_client.messages.create.call_args[1]["body"]
+        assert "Koha ticket ZD #215390" in body
+        assert "Waterford Township Public Library" in body
+        assert "Libby Authentication" in body
+        assert "help.bywatersolutions.com" in body
+
 
 # ---------------------------------------------------------------------------
 # partner_handlers tests
@@ -744,6 +807,7 @@ class TestPartnerHandlers:
                 key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
                 handlers[key] = fn
                 return fn
+
             return decorator
 
         app.message = capture_message
