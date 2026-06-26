@@ -10,34 +10,66 @@ Contains message handlers for:
 """
 
 import os
+import re
 import config
 from bot_functions import get_name_to_id_mapping, get_quote
 
 
 def register_general_handlers(app):
-    @app.message("help")
+    # Detailed capabilities, sent when you DM me "help" (any casing)
+    @app.message(re.compile(r"\bhelp\b", re.IGNORECASE))
     def message_help(message, say):
-        """List bot capabilities (DM only)."""
+        """Describe every capability and how to use it (DM only)."""
         if message.get("channel_type") != "im":
             return
 
         text = (
-            "Here are my capabilities:\n"
-            "* `hello`: Say hello\n"
-            "* `list slack names`: List known names and Slack IDs\n"
-            "* `Quote Please`: Get a random quote\n"
-            "* `Refresh Karma`: Refresh karma messages\n"
-            "* `Refresh Data`: Refresh ByWaterBot data from source\n"
-            "* `bug 1234` or `bz 1234`: Look up Koha bug\n"
-            "* `branches <bug_id> [shortname]`: Find branches for a bug\n"
-            "* `test sms <user>`: Send test SMS\n"
-            "* `test weekend duty`: Dry-run the weekend-duty alert (no SMS)\n"
-            "* `test weekend duty sms`: Send a real test SMS to the on-duty person\n"
-            "* `TEXT <user> <message>`: Send SMS\n"
-            "* `(user1 user2)++`: Group karma\n"
-            "* `user++` or `user--`: Individual karma\n"
-            "* `innreach partners`: List INN-Reach partners\n"
-            "* `rapido partners`: List Rapido partners"
+            ":robot_face: *ByWaterBot help*\n"
+            "Here's everything I can do and how to ask. Unless noted, commands work "
+            "in any channel I'm in or in a DM with me.\n"
+            "\n"
+            "*Koha & support lookups*\n"
+            "• `bug <id>` or `bz <id>` — Look up a Koha community bug; I reply with "
+            "its summary, status, and a link.   _e.g._ `bug 38120`\n"
+            "• `branches <bug_id> [shortname]` — List which Koha branches contain a "
+            "bug. Shortname defaults to `bywater`.   _e.g._ `branches 38120 bywater`\n"
+            "\n"
+            "*Partners*\n"
+            "• `innreach partners` — List the INN-Reach partner shortnames.\n"
+            "• `rapido partners` — List the Rapido partner shortnames.\n"
+            "\n"
+            "*Texting teammates (SMS via Twilio)*\n"
+            "• `TEXT <name> <message>` — Send a teammate an SMS. Use their name as it "
+            "appears in my contact list.   _e.g._ `TEXT Kyle running 5 min late`\n"
+            "• `test weekend duty` — _(#tickets only)_ Dry run: I tell you who's on "
+            "weekend duty and whether I have their number. No text is sent.\n"
+            "• `test weekend duty sms` — _(#tickets only)_ Send a real test SMS to the "
+            "current on-duty person.\n"
+            "\n"
+            "*Karma & kudos*\n"
+            "• `name++` or `@name++` — Give someone kudos; I post an encouragement to "
+            "#kudos.   _e.g._ `@kyle++`\n"
+            "• `(name1 name2 ...)++` — Give a whole group kudos at once.\n"
+            "• `name--` — Take a shot at someone; I'll gently push back.\n"
+            "\n"
+            "*Fun & utility*\n"
+            "• `hello` — I'll say hi.\n"
+            '• `wow` — Owen Wilson says "wow".\n'
+            "• `Quote Please` — I post a random quote to #general.\n"
+            "• `list slack names` — List the names and Slack IDs I know.\n"
+            "\n"
+            "*Admin (DM me only)*\n"
+            "• `Refresh Data` — Reload my contact/duty data from its source.\n"
+            "• `Refresh Karma` — Reload my karma pep-talk messages.\n"
+            "• `help` — Show this message (any casing works).\n"
+            "\n"
+            "*Things I do automatically* (no command needed)\n"
+            "• *New weekend tickets* — when a new ticket posts in #tickets, I text "
+            "whoever's on weekend duty.\n"
+            "• *DevOps fires* — react :fire: to a message in #devops and I'll text the "
+            "on-call dev/systems person.\n"
+            "• *#devops-alerts* — when a failure posts, I DM the on-call person an "
+            "Acknowledge button and keep reminding them until they click it."
         )
         say(text)
 

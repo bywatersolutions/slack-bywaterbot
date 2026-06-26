@@ -10,16 +10,51 @@ It is a replacement for the older slack-bwsbot project
 
 ## Getting Started
 
-### Keywords and phrases
+### Commands and features
 
-This bot has a number of words and phrases it listens for
+DM the bot `help` (any casing) and it replies with this same reference. Unless
+noted, commands work in any channel the bot is in or in a direct message.
 
-* "hello" - Bot will say hi to you!
-* "bug 1234", "bz 1234" - Bot will provide a link and info to the Koha Bugzilla for that number
-* "ticket 1234", "rt 1234" - Bot will provide a link to the given ticket number
-* "branches 1234", "branches 1234 _shortname_" - Bot will tell you bug branches are on the bug for the given shortname ( defaults to "bywater" )
-* "Quote Please" - Bot will give you a quote from our quotes file
-* "Refresh Karma" - Bot will download the latest version of the pep talk data
+#### Koha & support lookups
+
+* `bug <id>` / `bz <id>` — Look up a Koha community bug; replies with its summary, status, and a link. _e.g._ `bug 38120`
+* `branches <bug_id> [shortname]` — List which Koha branches contain a bug. Shortname defaults to `bywater`. _e.g._ `branches 38120 bywater`
+
+#### Partners
+
+* `innreach partners` — List the INN-Reach partner shortnames.
+* `rapido partners` — List the Rapido partner shortnames.
+
+#### Texting teammates (SMS via Twilio)
+
+* `TEXT <name> <message>` — Send a teammate an SMS. Use their name as it appears in the contact list. _e.g._ `TEXT Kyle running 5 min late`
+* `test weekend duty` — _(#tickets only)_ Dry run: reports who's on weekend duty and whether a number is on file. No text is sent.
+* `test weekend duty sms` — _(#tickets only)_ Send a real test SMS to the current on-duty person.
+
+#### Karma & kudos
+
+* `name++` / `@name++` — Give someone kudos; posts an encouragement to `#kudos`. _e.g._ `@kyle++`
+* `(name1 name2 ...)++` — Give a whole group kudos at once.
+* `name--` — Take a shot at someone; the bot gently pushes back.
+
+#### Fun & utility
+
+* `hello` — The bot says hi.
+* `wow` — Owen Wilson says "wow".
+* `Quote Please` — Posts a random quote to `#general`.
+* `list slack names` — List the names and Slack IDs the bot knows.
+
+#### Admin (DM only)
+
+* `Refresh Data` — Reload contact/duty data from its source.
+* `Refresh Karma` — Reload the karma pep-talk messages.
+* `help` — Show this capability reference (any casing).
+
+#### Automatic behaviors (no command needed)
+
+* **New weekend tickets** — when a new ticket posts in `#tickets`, the bot texts whoever's on weekend duty.
+* **DevOps fires** — react :fire: to a message in `#devops` and the bot texts the on-call dev/systems person.
+* **#devops-alerts** — see [DevOps alert acknowledgements](#devops-alert-acknowledgements) below.
 
 ### DevOps alert acknowledgements
 

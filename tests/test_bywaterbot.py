@@ -389,15 +389,26 @@ class TestGeneralHandlers:
         app, handlers = self._register()
         say = MagicMock()
         # Not a DM - should not respond
-        handlers["help"]({"channel_type": "channel"}, say)
+        handlers[r"\bhelp\b"]({"channel_type": "channel"}, say)
         say.assert_not_called()
 
     def test_help_responds_in_dm(self):
         app, handlers = self._register()
         say = MagicMock()
-        handlers["help"]({"channel_type": "im"}, say)
+        handlers[r"\bhelp\b"]({"channel_type": "im"}, say)
         say.assert_called_once()
-        assert "capabilities" in say.call_args[0][0].lower()
+        text = say.call_args[0][0]
+        assert "ByWaterBot help" in text
+        # The detailed help describes the major capabilities and how to use them
+        for snippet in ["bug <id>", "TEXT <name>", "name++", "test weekend duty"]:
+            assert snippet in text
+
+    def test_help_trigger_is_case_insensitive(self):
+        # "help" in any casing triggers the help, but "helpful" does not
+        pattern = re.compile(r"\bhelp\b", re.IGNORECASE)
+        for variant in ["help", "Help", "HELP", "please help"]:
+            assert pattern.search(variant)
+        assert not pattern.search("helpful")
 
     def test_hello(self):
         app, handlers = self._register()
