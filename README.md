@@ -18,6 +18,7 @@ noted, commands work in any channel the bot is in or in a direct message.
 #### Koha & support lookups
 
 * `bug <id>` / `bz <id>` — Look up a Koha community bug; replies with its summary, status, and a link. _e.g._ `bug 38120`
+* `ticket <id>` / `zd <id>` — Look up a Zoho Desk support ticket by its ZD number; replies with its status, assignee, partner, and a link. _e.g._ `ticket 215390`
 * `branches <bug_id> [shortname]` — List which Koha branches contain a bug. Shortname defaults to `bywater`. _e.g._ `branches 38120 bywater`
 
 #### Partners
@@ -89,6 +90,23 @@ This project uses a number of environment variables to function:
 * TWILIO_PHONE - Outgoing Twilio phone number ( e.g. +11234567890 )
 * DEVOPS_ALERT_DM_USER - Who to nag about #devops-alerts failures ( defaults to the devops fire-duty default, "Kyle" )
 * DEVOPS_ALERT_NAG_MINUTES - Minutes between un-acknowledged DM reminders ( defaults to 15 )
+
+The `ticket`/`zd` lookup talks to the Zoho Desk REST API using an OAuth2
+refresh token ( server-to-server ). Create a Self Client in the
+[Zoho API Console](https://api-console.zoho.com/), generate a grant code with
+the scope `Desk.tickets.READ,Desk.search.READ` ( both are required — the search
+endpoint used for ZD-number lookups needs `Desk.search.READ` ), then exchange it
+for a refresh token once and set the variables below.
+
+The exchange is scripted — run `python zoho_functions.py` and paste the grant
+code when prompted; it prints the `ZOHO_REFRESH_TOKEN` to set.
+
+* ZOHO_DESK_ORG_ID - Zoho Desk organization id ( ByWater is `868351381`; from `GET /api/v1/organizations` )
+* ZOHO_CLIENT_ID - OAuth client id from the Self Client
+* ZOHO_CLIENT_SECRET - OAuth client secret from the Self Client
+* ZOHO_REFRESH_TOKEN - Long-lived refresh token from the one-time code exchange
+* ZOHO_ACCOUNTS_URL - Accounts base URL ( optional, defaults to `https://accounts.zoho.com`; change for non-US data centers )
+* ZOHO_DESK_URL - Desk API base URL ( optional, defaults to `https://desk.zoho.com` )
 
 Check out https://slack.dev/bolt-python/tutorial/getting-started to see
 how to set up the Slack tokens.

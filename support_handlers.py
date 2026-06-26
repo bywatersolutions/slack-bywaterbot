@@ -3,7 +3,7 @@ Support Handlers Module
 
 Contains message handlers for:
 - Koha Bugzilla lookup (bug/bz <id>)
-- RT Ticket lookup (ticket/rt <id>)
+- Zoho Desk ticket lookup (ticket/zd <id>)
 - Bug branch lookup (branches <id>)
 - Ticket creation notifications (detects "*New Ticket:*" from Zoho Flow)
 - SMS relay (TEXT <user> <message>)
@@ -17,6 +17,7 @@ import re
 import config
 from calendar_functions import get_weekend_duty, get_user
 from bot_functions import get_channel_id_by_name
+from zoho_functions import zoho_configured, get_zoho_ticket
 
 pp = pprint.PrettyPrinter(indent=2)
 
@@ -107,70 +108,66 @@ def register_support_handlers(app):
                 f"I couldn't find details for bug {bug}. It might not exist or the API is down."
             )
 
-    # RT links, recognizes "ticket 1234" and "rt 1234"
-    @app.message(re.compile(r"(ticket|rt)\s*([0-9]+)"))
-    def handle_rt_ticket(say, context):
-        """Lookup an RT ticket and post its details."""
-        ticket_id = context["matches"][1]
+    # Zoho Desk links, recognizes "ticket 1234", "zd 1234" and "zd #1234"
+    @app.message(re.compile(r"(ticket|zd)\s*#?\s*([0-9]+)", re.IGNORECASE))
+    def handle_zoho_ticket(say, context, message):
+        """Look up a Zoho Desk ticket by its ZD number and post its details."""
+        # Ignore bot-posted messages, e.g. the Zoho Flow "New Ticket" announcement
+        # ( which contains "ZD #NNNN" and would otherwise trigger a second lookup )
+        if message.get("bot_id") or message.get("subtype") == "bot_message":
+            return
 
-        rt_user = os.environ.get("RT_USERNAME")
-        rt_pass = os.environ.get("RT_PASSWORD")
+        ticket_number = context["matches"][1]
 
-        if not rt_user or not rt_pass:
-            say("RT credentials are not configured!")
+        if not zoho_configured():
+            say("Zoho Desk credentials are not configured!")
             return
 
         try:
-            tracker = rt.Rt(
-                "https://ticket.bywatersolutions.com/REST/1.0/", rt_user, rt_pass
-            )
-            tracker.login()
-
-            tickets = tracker.search(Queue=rt.ALL_QUEUES, raw_query=f"id='{ticket_id}'")
-
-            if not tickets:
-                say(f"Ticket {ticket_id} not found.")
+            ticket = get_zoho_ticket(ticket_number)
+            if not ticket:
+                say(f"Ticket ZD #{ticket_number} not found.")
                 return
 
-            # ticket = tracker.get_ticket(ticket_id=ticket_id) # Seemingly unused or redundant with search
+            subject = ticket.get("subject") or "(no subject)"
+            status = ticket.get("status") or "Unknown"
+            priority = ticket.get("priority") or "—"
 
-            subject = tickets[0]["Subject"]
-            owner = tickets[0]["Owner"]
-            queue = tickets[0]["Queue"]
+            assignee = ticket.get("assignee") or {}
+            assignee_name = (
+                " ".join(
+                    filter(None, [assignee.get("firstName"), assignee.get("lastName")])
+                )
+                or "Unassigned"
+            )
 
-            requestors1 = ""
-            requestors2 = ""
-            i = 0
-            requestors = tickets[0]["Requestors"]
-            for r in requestors:
-                if (i % 2) == 0:
-                    requestors1 = requestors1 + f"{r}\n"
-                else:
-                    requestors2 = requestors2 + f"{r}\n"
-                i += 1
+            contact = ticket.get("contact") or {}
+            contact_name = (
+                " ".join(
+                    filter(None, [contact.get("firstName"), contact.get("lastName")])
+                )
+                or "—"
+            )
+            account = (contact.get("account") or {}).get("accountName") or "—"
 
-            if len(requestors2):
-                requestors2 = ".\n" + requestors2
-            else:
-                requestors2 = " "
-
-            rt_url = f"https://ticket.bywatersolutions.com/Ticket/Display.html?id={ticket_id}"
+            web_url = ticket.get("webUrl") or "https://help.bywatersolutions.com"
 
             blocks = [
                 {
                     "type": "header",
                     "text": {
                         "type": "plain_text",
-                        "text": f"Ticket {ticket_id}: {subject}",
+                        "text": f"Ticket ZD #{ticket_number}: {subject}"[:150],
                     },
                 },
                 {
                     "type": "section",
                     "fields": [
-                        {"type": "mrkdwn", "text": f"*Owner*\n{owner}"},
-                        {"type": "mrkdwn", "text": f"*Queue*\n{queue}"},
-                        {"type": "mrkdwn", "text": f"*Requestors*\n{requestors1}"},
-                        {"type": "mrkdwn", "text": f"{requestors2}"},
+                        {"type": "mrkdwn", "text": f"*Status*\n{status}"},
+                        {"type": "mrkdwn", "text": f"*Priority*\n{priority}"},
+                        {"type": "mrkdwn", "text": f"*Assignee*\n{assignee_name}"},
+                        {"type": "mrkdwn", "text": f"*Partner*\n{account}"},
+                        {"type": "mrkdwn", "text": f"*Requestor*\n{contact_name}"},
                     ],
                 },
                 {
@@ -180,22 +177,22 @@ def register_support_handlers(app):
                             "type": "button",
                             "text": {
                                 "type": "plain_text",
-                                "text": f"View ticket {ticket_id}",
+                                "text": f"View ticket {ticket_number}",
                             },
                             "style": "primary",
-                            "value": f"View ticket {ticket_id}",
-                            "url": f"{rt_url}",
+                            "value": f"View ticket {ticket_number}",
+                            "url": web_url,
                         }
                     ],
                 },
             ]
             say(
                 blocks=blocks,
-                text=f"<{rt_url}|Ticket {ticket_id}>: _{subject}_",
+                text=f"<{web_url}|Ticket ZD #{ticket_number}>: _{subject}_ [*{status}*]",
             )
         except Exception as e:
-            print(f"Error fetching ticket {ticket_id}: {e}")
-            say(f"Error fetching ticket {ticket_id}.")
+            print(f"Error fetching Zoho ticket {ticket_number}: {e}")
+            say(f"Error fetching ticket ZD #{ticket_number}.")
 
     # ByWater "Koha branches that contain this bug" tool
     @app.message(re.compile(r"(branches)\s*(\d+)\s*(\S*)"))

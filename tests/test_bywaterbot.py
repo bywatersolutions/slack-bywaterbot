@@ -896,6 +896,159 @@ class TestSupportHandlers:
         assert "no SMS number" in say.call_args[1]["text"]
         config.twilio_client.messages.create.assert_not_called()
 
+    _ZOHO_TICKET_PATTERN = r"(ticket|zd)\s*#?\s*([0-9]+)"
+
+    _SAMPLE_TICKET = {
+        "ticketNumber": "215390",
+        "subject": "Libby Authentication",
+        "status": "New",
+        "priority": "Medium (workflow blocker)",
+        "assignee": {"firstName": "Eric", "lastName": "Swenson"},
+        "contact": {
+            "firstName": "Dana",
+            "lastName": "Nicklas",
+            "account": {"accountName": "Waterford Township Public Library"},
+        },
+        "webUrl": "https://help.bywatersolutions.com/agent/x#Cases/dv/123",
+    }
+
+    @patch("support_handlers.zoho_configured", return_value=True)
+    @patch("support_handlers.get_zoho_ticket")
+    def test_handle_zoho_ticket_found(self, mock_get_ticket, mock_configured):
+        mock_get_ticket.return_value = self._SAMPLE_TICKET
+
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("ticket", "215390")}
+        message = {"text": "ticket 215390", "user": "U1"}
+
+        handlers[self._ZOHO_TICKET_PATTERN](say, context, message)
+
+        say.assert_called_once()
+        kwargs = say.call_args[1]
+        assert "215390" in kwargs["text"]
+        rendered = str(kwargs["blocks"])
+        assert "Libby Authentication" in rendered
+        assert "Eric Swenson" in rendered
+        assert "Waterford Township Public Library" in rendered
+
+    @patch("support_handlers.zoho_configured", return_value=False)
+    @patch("support_handlers.get_zoho_ticket")
+    def test_handle_zoho_ticket_not_configured(self, mock_get_ticket, mock_configured):
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("ticket", "215390")}
+        message = {"text": "ticket 215390", "user": "U1"}
+
+        handlers[self._ZOHO_TICKET_PATTERN](say, context, message)
+
+        say.assert_called_once()
+        assert "not configured" in say.call_args[0][0].lower()
+        mock_get_ticket.assert_not_called()
+
+    @patch("support_handlers.zoho_configured", return_value=True)
+    @patch("support_handlers.get_zoho_ticket", return_value=None)
+    def test_handle_zoho_ticket_not_found(self, mock_get_ticket, mock_configured):
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("zd", "999999")}
+        message = {"text": "zd #999999", "user": "U1"}
+
+        handlers[self._ZOHO_TICKET_PATTERN](say, context, message)
+
+        say.assert_called_once()
+        assert "not found" in say.call_args[0][0].lower()
+
+    @patch("support_handlers.zoho_configured", return_value=True)
+    @patch("support_handlers.get_zoho_ticket")
+    def test_handle_zoho_ticket_ignores_bot_messages(
+        self, mock_get_ticket, mock_configured
+    ):
+        # The Zoho Flow "New Ticket" announcement is a bot message and must not
+        # trigger a second lookup
+        app, handlers = self._register()
+        say = MagicMock()
+        context = {"matches": ("zd", "215390")}
+        message = {"bot_id": "B08GUPHPLG0", "text": "*New Ticket:* ZD #215390 - x"}
+
+        handlers[self._ZOHO_TICKET_PATTERN](say, context, message)
+
+        say.assert_not_called()
+        mock_get_ticket.assert_not_called()
+
+
+# ---------------------------------------------------------------------------
+# zoho_functions tests
+# ---------------------------------------------------------------------------
+
+ZOHO_ENV = {
+    "ZOHO_CLIENT_ID": "cid",
+    "ZOHO_CLIENT_SECRET": "secret",
+    "ZOHO_REFRESH_TOKEN": "rtok",
+    "ZOHO_DESK_ORG_ID": "868351381",
+}
+
+
+class TestZohoFunctions:
+    @patch.dict(os.environ, ZOHO_ENV, clear=True)
+    def test_configured_true(self):
+        import zoho_functions
+
+        assert zoho_functions.zoho_configured() is True
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_configured_false(self):
+        import zoho_functions
+
+        assert zoho_functions.zoho_configured() is False
+
+    @patch.dict(os.environ, ZOHO_ENV, clear=True)
+    @patch("zoho_functions.requests.post")
+    def test_access_token_caches(self, mock_post):
+        import zoho_functions
+
+        zoho_functions._access_token = None
+        zoho_functions._access_token_expiry = 0
+        mock_post.return_value = MagicMock(status_code=200)
+        mock_post.return_value.json.return_value = {
+            "access_token": "tok123",
+            "expires_in": 3600,
+        }
+
+        assert zoho_functions.get_zoho_access_token() == "tok123"
+        # Second call serves from cache, no new token request
+        assert zoho_functions.get_zoho_access_token() == "tok123"
+        mock_post.assert_called_once()
+
+    @patch.dict(os.environ, ZOHO_ENV, clear=True)
+    @patch("zoho_functions.get_zoho_access_token", return_value="tok")
+    @patch("zoho_functions.requests.get")
+    def test_get_ticket_found(self, mock_get, mock_token):
+        import zoho_functions
+
+        mock_get.return_value = MagicMock(status_code=200)
+        mock_get.return_value.json.return_value = {
+            "data": [{"ticketNumber": "215390", "subject": "Libby Authentication"}]
+        }
+
+        ticket = zoho_functions.get_zoho_ticket("215390")
+        assert ticket["subject"] == "Libby Authentication"
+
+    @patch.dict(os.environ, ZOHO_ENV, clear=True)
+    @patch("zoho_functions.get_zoho_access_token", return_value="tok")
+    @patch("zoho_functions.requests.get")
+    def test_get_ticket_not_found_returns_none(self, mock_get, mock_token):
+        import zoho_functions
+
+        mock_get.return_value = MagicMock(status_code=204)
+        assert zoho_functions.get_zoho_ticket("999999") is None
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_get_ticket_not_configured_returns_none(self):
+        import zoho_functions
+
+        assert zoho_functions.get_zoho_ticket("215390") is None
+
 
 # ---------------------------------------------------------------------------
 # partner_handlers tests
