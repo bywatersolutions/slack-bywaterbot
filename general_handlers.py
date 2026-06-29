@@ -13,16 +13,16 @@ import os
 import re
 import config
 from bot_functions import get_name_to_id_mapping, get_quote
+from message_matchers import is_direct_message, is_not_bot_message
 
 
 def register_general_handlers(app):
-    # Detailed capabilities, sent when you DM me "help" (any casing)
-    @app.message(re.compile(r"\bhelp\b", re.IGNORECASE))
+    # Detailed capabilities, sent when you DM me "help" (any casing).
+    # DM-only via the matcher so the help text's \bhelp\b doesn't swallow channel
+    # messages that merely contain the word ( e.g. a "help.bywatersolutions.com" link )
+    @app.message(re.compile(r"\bhelp\b", re.IGNORECASE), matchers=[is_direct_message])
     def message_help(message, say):
         """Describe every capability and how to use it (DM only)."""
-        if message.get("channel_type") != "im":
-            return
-
         text = (
             ":robot_face: *ByWaterBot help*\n"
             "Here's everything I can do and how to ask. Unless noted, commands work "
@@ -61,6 +61,13 @@ def register_general_handlers(app):
             "• `Quote Please` — I post a random quote to #general.\n"
             "• `list slack names` — List the names and Slack IDs I know.\n"
             "\n"
+            "*Your contact info (DM me only)*\n"
+            "• `claim <name>` — Link your Slack account to your weekend/fire-duty "
+            "name so I can find you.   _e.g._ `claim Laura O`\n"
+            "• `set my sms <number>` — Set the mobile number I text for your duty "
+            "alerts.   _e.g._ `set my sms +12025550123`\n"
+            "• `my info` — Show the name and ( masked ) number I have on file for you.\n"
+            "\n"
             "*Admin (DM me only)*\n"
             "• `Refresh Data` — Reload my contact/duty data from its source.\n"
             "• `Refresh Karma` — Reload my karma pep-talk messages.\n"
@@ -76,20 +83,20 @@ def register_general_handlers(app):
         )
         say(text)
 
-    @app.message("hello")
+    @app.message("hello", matchers=[is_not_bot_message])
     def message_hello(message, say):
         # say() sends a message to the channel where the event was triggered
         print(f"Hey there <@{message['user']}>!")
         say(f"Hey there <@{message['user']}>!")
 
-    @app.message("^list slack names")
+    @app.message("^list slack names", matchers=[is_not_bot_message])
     def message_names(message, say):
         name_to_id, name_to_info = get_name_to_id_mapping(app)
         say("Here are the names I know along with that persons Slack ID :")
         for name, info in name_to_info.items():
             say(f"{name}: {info['id']}")
 
-    @app.message("^wow")
+    @app.message("^wow", matchers=[is_not_bot_message])
     def message_wow(message, say):
         blocks = [
             {
@@ -100,7 +107,7 @@ def register_general_handlers(app):
         ]
         say(blocks=blocks)
 
-    @app.message("Quote Please")
+    @app.message("Quote Please", matchers=[is_not_bot_message])
     def handle_quote(message, say):
         """Post a random quote to #general and echo it."""
         quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
@@ -117,13 +124,10 @@ def register_general_handlers(app):
         else:
             say("No QUOTES_CSV_URL configured.")
 
-    # Refresh bywaterbot data manually
-    @app.message("Refresh Data")
+    # Refresh bywaterbot data manually ( DM-only )
+    @app.message("Refresh Data", matchers=[is_direct_message])
     def handle_refresh(message, say):
         """Refresh bywaterbot data."""
-        if message.get("channel_type") != "im":
-            return
-
         if config.refresh_data():
             say("Successfully refreshed bywaterbot data!")
         else:

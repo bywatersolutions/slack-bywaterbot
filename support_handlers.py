@@ -18,6 +18,7 @@ import config
 from calendar_functions import get_weekend_duty, get_user
 from bot_functions import get_channel_id_by_name
 from zoho_functions import zoho_configured, get_zoho_ticket
+from message_matchers import is_not_bot_message
 
 pp = pprint.PrettyPrinter(indent=2)
 
@@ -43,6 +44,85 @@ def _mask_sms(sms):
     return "***-***-" + sms[-4:] if sms else ""
 
 
+def register_ticket_notifier(app):
+    """Register the #tickets new-ticket SMS notifier.
+
+    This has to be registered before every other message handler. Bolt runs
+    only the first @app.message listener that matches an incoming message, and
+    the Zoho Flow "New Ticket" post also matches broader handlers: the help
+    command's 'help' trigger matches the word 'help' inside the
+    help.bywatersolutions.com case link, and the ticket-lookup handler matches
+    the "ZD #NNNN" in the post. If any of those win first, this notifier never
+    runs and nobody on weekend duty gets texted. Registering it first lets the
+    specific "New Ticket" pattern win.
+    """
+
+    # ByWater Weekend Updater, sends sms to person on weekend duty.
+    # Matches the "New Ticket" notifications Zoho Flow posts to #tickets, e.g.:
+    #   *New Ticket:* ZD #215390 - Libby Authentication
+    #   *Product:* Koha
+    #   *Partner:* Waterford Township Public Library
+    @app.message(re.compile(r"\*New Ticket:\*\s+ZD\s+#(\d+)\s+-\s+(.+)"))
+    def handle_ticket_created(say, context, message):
+        """Notify weekend duty on ticket creation."""
+        ticket = context["matches"][0]
+        subject = context["matches"][1].strip()
+
+        # Product, Partner and the case URL live on their own lines in the message
+        text = message.get("text", "")
+
+        product_match = re.search(r"\*Product:\*\s*(.+)", text)
+        product = product_match.group(1).strip() if product_match else ""
+
+        partner_match = re.search(r"\*Partner:\*\s*(.+)", text)
+        partner = partner_match.group(1).strip() if partner_match else ""
+
+        # The Zoho Desk case link, e.g. <https://help.bywatersolutions.com/.../dv/123>
+        url_match = re.search(r"<(https?://help\.bywatersolutions\.com/[^>]+)>", text)
+        ticket_url = url_match.group(1) if url_match else ""
+
+        print(
+            f"TICKET: {ticket}, PRODUCT: {product}, PARTNER: {partner}, SUBJECT: {subject}"
+        )
+
+        event = get_weekend_duty()
+        if event:
+            print(event)
+            user = get_user(event)
+            print("FOUND USER: ", user)
+
+            if user in config.bywaterbot_data["users"]:
+                transports = config.bywaterbot_data["users"][user]
+                if transports.get("sms"):
+                    sms = transports["sms"]
+                    say(text=f"I've alerted {user} via sms!")
+
+                    # Product/Partner can be blank on some tickets, so build the
+                    # message a piece at a time and only include what we have
+                    descriptor = f"{product} ticket" if product else "ticket"
+                    body = f"New {descriptor} ZD #{ticket}"
+                    if partner:
+                        body += f" for {partner}"
+                    body += f": {subject}"
+                    if ticket_url:
+                        body += f" {ticket_url}"
+                    try:
+                        if config.twilio_client:
+                            message = config.twilio_client.messages.create(
+                                body=body, from_=config.twilio_phone, to=sms
+                            )
+                            print(message.sid)
+                    except Exception as e:
+                        print(f"Error sending SMS: {e}")
+                        say(f"Failed to send SMS to {user}.")
+                else:
+                    say(text=f"{user} does not have an SMS number configured!")
+            else:
+                say(text=f"{user} not found in my records for alerts.")
+        else:
+            print("No weekend duty event found.")
+
+
 def register_support_handlers(app):
 
     # Resolve the #tickets channel id once so the weekend-duty test command can
@@ -54,8 +134,14 @@ def register_support_handlers(app):
         print(f"Error getting tickets channel ID: {e}")
         tickets_channel_id = None
 
+    def in_tickets_channel(message):
+        """Listener matcher: only match messages posted in #tickets."""
+        return tickets_channel_id is not None and (
+            message.get("channel") == tickets_channel_id
+        )
+
     # Koha bugzilla links, recognizes "bug 1234" and "bz 1234"
-    @app.message(re.compile(r"(bug|bz)\s*([0-9]+)"))
+    @app.message(re.compile(r"(bug|bz)\s*([0-9]+)"), matchers=[is_not_bot_message])
     def handle_koha_bug(say, context):
         """Lookup a Koha bug and post its details."""
         bug = context["matches"][1]
@@ -108,15 +194,16 @@ def register_support_handlers(app):
                 f"I couldn't find details for bug {bug}. It might not exist or the API is down."
             )
 
-    # Zoho Desk links, recognizes "ticket 1234", "zd 1234" and "zd #1234"
-    @app.message(re.compile(r"(ticket|zd)\s*#?\s*([0-9]+)", re.IGNORECASE))
+    # Zoho Desk links, recognizes "ticket 1234", "zd 1234" and "zd #1234".
+    # is_not_bot_message keeps this off the Zoho Flow "New Ticket" announcement
+    # ( which contains "ZD #NNNN" ) so it neither does a second lookup nor shadows
+    # the new-ticket notifier.
+    @app.message(
+        re.compile(r"(ticket|zd)\s*#?\s*([0-9]+)", re.IGNORECASE),
+        matchers=[is_not_bot_message],
+    )
     def handle_zoho_ticket(say, context, message):
         """Look up a Zoho Desk ticket by its ZD number and post its details."""
-        # Ignore bot-posted messages, e.g. the Zoho Flow "New Ticket" announcement
-        # ( which contains "ZD #NNNN" and would otherwise trigger a second lookup )
-        if message.get("bot_id") or message.get("subtype") == "bot_message":
-            return
-
         ticket_number = context["matches"][1]
 
         if not zoho_configured():
@@ -195,7 +282,9 @@ def register_support_handlers(app):
             say(f"Error fetching ticket ZD #{ticket_number}.")
 
     # ByWater "Koha branches that contain this bug" tool
-    @app.message(re.compile(r"(branches)\s*(\d+)\s*(\S*)"))
+    @app.message(
+        re.compile(r"(branches)\s*(\d+)\s*(\S*)"), matchers=[is_not_bot_message]
+    )
     def handle_branches(say, context):
         """Find Koha branches containing a bug."""
         bug = context["matches"][1]
@@ -225,80 +314,15 @@ def register_support_handlers(app):
             print(f"Error finding branches for bug {bug}: {e}")
             say(f"Error finding branches for bug {bug}.")
 
-    # ByWater Weekend Updater, sends sms to person on weekend duty.
-    # Matches the "New Ticket" notifications Zoho Flow posts to #tickets, e.g.:
-    #   *New Ticket:* ZD #215390 - Libby Authentication
-    #   *Product:* Koha
-    #   *Partner:* Waterford Township Public Library
-    @app.message(re.compile(r"\*New Ticket:\*\s+ZD\s+#(\d+)\s+-\s+(.+)"))
-    def handle_ticket_created(say, context, message):
-        """Notify weekend duty on ticket creation."""
-        ticket = context["matches"][0]
-        subject = context["matches"][1].strip()
-
-        # Product, Partner and the case URL live on their own lines in the message
-        text = message.get("text", "")
-
-        product_match = re.search(r"\*Product:\*\s*(.+)", text)
-        product = product_match.group(1).strip() if product_match else ""
-
-        partner_match = re.search(r"\*Partner:\*\s*(.+)", text)
-        partner = partner_match.group(1).strip() if partner_match else ""
-
-        # The Zoho Desk case link, e.g. <https://help.bywatersolutions.com/.../dv/123>
-        url_match = re.search(r"<(https?://help\.bywatersolutions\.com/[^>]+)>", text)
-        ticket_url = url_match.group(1) if url_match else ""
-
-        print(
-            f"TICKET: {ticket}, PRODUCT: {product}, PARTNER: {partner}, SUBJECT: {subject}"
-        )
-
-        event = get_weekend_duty()
-        if event:
-            print(event)
-            user = get_user(event)
-            print("FOUND USER: ", user)
-
-            if user in config.bywaterbot_data["users"]:
-                transports = config.bywaterbot_data["users"][user]
-                if transports.get("sms"):
-                    sms = transports["sms"]
-                    say(text=f"I've alerted {user} via sms!")
-
-                    # Product/Partner can be blank on some tickets, so build the
-                    # message a piece at a time and only include what we have
-                    descriptor = f"{product} ticket" if product else "ticket"
-                    body = f"New {descriptor} ZD #{ticket}"
-                    if partner:
-                        body += f" for {partner}"
-                    body += f": {subject}"
-                    if ticket_url:
-                        body += f" {ticket_url}"
-                    try:
-                        if config.twilio_client:
-                            message = config.twilio_client.messages.create(
-                                body=body, from_=config.twilio_phone, to=sms
-                            )
-                            print(message.sid)
-                    except Exception as e:
-                        print(f"Error sending SMS: {e}")
-                        say(f"Failed to send SMS to {user}.")
-                else:
-                    say(text=f"{user} does not have an SMS number configured!")
-            else:
-                say(text=f"{user} not found in my records for alerts.")
-        else:
-            print("No weekend duty event found.")
-
     # Weekend duty self-test, #tickets only:
     #   "test weekend duty"      -> dry run, report who'd be alerted, no SMS
     #   "test weekend duty sms"  -> send a real test SMS to the on-duty person
-    @app.message(re.compile(r"test weekend duty(\s+sms)?", re.IGNORECASE))
+    @app.message(
+        re.compile(r"test weekend duty(\s+sms)?", re.IGNORECASE),
+        matchers=[in_tickets_channel],
+    )
     def handle_weekend_duty_test(say, context, message):
         """Exercise the weekend-duty alert path on demand from #tickets."""
-        if message.get("channel") != tickets_channel_id:
-            return
-
         send_sms = bool(context["matches"][0])  # group 1 = " sms" when present
         event, user, sms = resolve_weekend_duty_user()
 
@@ -350,7 +374,7 @@ def register_support_handlers(app):
             )
 
     # Text someone from slack
-    @app.message(re.compile("TEXT (.*)"))
+    @app.message(re.compile("TEXT (.*)"), matchers=[is_not_bot_message])
     def handle_text_command(say, context):
         """Relay a Slack message to a user via SMS."""
         message_text = context["matches"][0]

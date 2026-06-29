@@ -13,6 +13,7 @@ import os
 from twilio.rest import Client
 import config
 from bot_functions import get_name_to_id_mapping, get_karma_pep_talks, get_putdowns
+from message_matchers import is_direct_message, is_not_bot_message
 
 # Load karma pep talks from csv
 karma_csv_url = os.environ.get("KARMA_CSV_URL")
@@ -61,7 +62,7 @@ def register_karma_handlers(app):
             say(text=f"Who doesn't love {user}, right?")
 
     # Handle group karma e.g. (@khall @kidclamp @tcohen)++
-    @app.message(re.compile(r"\((.+)\)\+\+"))
+    @app.message(re.compile(r"\((.+)\)\+\+"), matchers=[is_not_bot_message])
     def handle_group_karma(say, context):
         """Handle group karma increments."""
         users = context["matches"][0]
@@ -71,14 +72,14 @@ def register_karma_handlers(app):
     # Handle individual karma
     # Regex designed to capture `user++` or `user ++` but NOT things like `C++` ideally,
     # though the original regex was quite broad: (\S*)(\s?\+\+\s?)(.*)?
-    @app.message(re.compile(r"(\S*)(\s?\+\+\s?)(.*)?"))
+    @app.message(re.compile(r"(\S*)(\s?\+\+\s?)(.*)?"), matchers=[is_not_bot_message])
     def handle_individual_karma(say, context):
         """Handle individual karma increments."""
         user = context["matches"][0]
         give_karma(user, say, context)
 
     # Handle negative Karma
-    @app.message(re.compile(r"^(\w+)(\-\-)"))
+    @app.message(re.compile(r"^(\w+)(\-\-)"), matchers=[is_not_bot_message])
     def handle_negative_karma(say, context):
         """Handle negative karma decrements."""
         user = context["matches"][0]
@@ -97,12 +98,9 @@ def register_karma_handlers(app):
             p = random.choice(putdowns) if putdowns else "is not great."
             say(text=f"{user}, {p}")
 
-    @app.message("Refresh Karma")
+    @app.message("Refresh Karma", matchers=[is_direct_message])
     def refresh_karma(message, say):
-        """Refresh the cached karma pep talks."""
-        if message.get("channel_type") != "im":
-            return
-
+        """Refresh the cached karma pep talks ( DM-only )."""
         global karma1, karma2, karma3, karma4
         say(f"Sure thing!!")
         try:

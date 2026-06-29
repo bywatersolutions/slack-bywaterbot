@@ -8,6 +8,8 @@ Commands:
 
 import re
 
+from message_matchers import is_not_bot_message
+
 # TODO: Replace hardcoded lists with Zoho CRM API once access is granted
 PARTNERS = {
     "innreach": [
@@ -30,7 +32,10 @@ PARTNERS = {
 
 def register_partner_handlers(app):
 
-    @app.message(re.compile(r"(innreach|rapido)\s+partners", re.IGNORECASE))
+    @app.message(
+        re.compile(r"(innreach|rapido)\s+partners", re.IGNORECASE),
+        matchers=[is_not_bot_message],
+    )
     def handle_partners(say, context):
         """List partners for INN-Reach or Rapido."""
         product = context["matches"][0].lower()

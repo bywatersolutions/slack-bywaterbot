@@ -21,8 +21,9 @@ from devops_handlers import register_devops_handlers
 from devops_alerts_handlers import register_devops_alerts_handlers
 from general_handlers import register_general_handlers
 from karma_handlers import register_karma_handlers
-from support_handlers import register_support_handlers
+from support_handlers import register_support_handlers, register_ticket_notifier
 from partner_handlers import register_partner_handlers
+from contact_handlers import register_contact_handlers
 
 
 def run_scheduler():
@@ -36,6 +37,26 @@ def run_scheduler():
     while True:
         schedule.run_pending()
         time.sleep(60)  # Check every minute
+
+
+def register_handlers(app):
+    """Register every handler, in the order Bolt has to see them.
+
+    Bolt runs only the first @app.message listener that matches a message, so
+    order matters. The #tickets new-ticket notifier registers first: its
+    specific "New Ticket" pattern must win over the broader help/lookup handlers,
+    which also match the Zoho Flow post. The #devops-alerts watcher uses a
+    catch-all @app.event("message") that matches every message, so it registers
+    last or it shadows the partner and contact commands below it.
+    """
+    register_ticket_notifier(app)
+    register_general_handlers(app)
+    register_karma_handlers(app)
+    register_support_handlers(app)
+    register_devops_handlers(app)
+    register_partner_handlers(app)
+    register_contact_handlers(app)
+    register_devops_alerts_handlers(app)
 
 
 if __name__ == "__main__":
@@ -65,13 +86,8 @@ if __name__ == "__main__":
     except Exception as e:
         print(f"Warning: Failed to initialize Google Calendar credentials: {e}")
 
-    # 5. Register Handlers
-    register_general_handlers(app)
-    register_karma_handlers(app)
-    register_support_handlers(app)
-    register_devops_handlers(app)
-    register_devops_alerts_handlers(app)
-    register_partner_handlers(app)
+    # 5. Register Handlers ( order matters — see register_handlers )
+    register_handlers(app)
 
     # 6. Start the App
     SocketModeHandler(app, os.environ["SLACK_APP_TOKEN"]).start()
