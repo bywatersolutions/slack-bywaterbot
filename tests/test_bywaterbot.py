@@ -374,9 +374,11 @@ class TestGeneralHandlers:
         app = MagicMock()
         handlers = {}
 
-        def capture_message(pattern):
+        def capture_message(pattern, *args, **kwargs):
             def decorator(fn):
-                handlers[pattern if isinstance(pattern, str) else pattern.pattern] = fn
+                key = pattern if isinstance(pattern, str) else pattern.pattern
+                fn._matchers = kwargs.get("matchers") or []
+                handlers[key] = fn
                 return fn
 
             return decorator
@@ -387,10 +389,11 @@ class TestGeneralHandlers:
 
     def test_help_only_in_dm(self):
         app, handlers = self._register()
-        say = MagicMock()
-        # Not a DM - should not respond
-        handlers[r"\bhelp\b"]({"channel_type": "channel"}, say)
-        say.assert_not_called()
+        # DM-only is enforced by a listener matcher, not the handler body, so it
+        # doesn't shadow channel messages that merely contain the word "help"
+        (is_dm,) = handlers[r"\bhelp\b"]._matchers
+        assert is_dm({"channel_type": "channel"}) is False
+        assert is_dm({"channel_type": "im"}) is True
 
     def test_help_responds_in_dm(self):
         app, handlers = self._register()
@@ -427,9 +430,10 @@ class TestGeneralHandlers:
 
     def test_refresh_only_in_dm(self):
         app, handlers = self._register()
-        say = MagicMock()
-        handlers["Refresh Data"]({"channel_type": "channel"}, say)
-        say.assert_not_called()
+        # DM-only via a listener matcher
+        (is_dm,) = handlers["Refresh Data"]._matchers
+        assert is_dm({"channel_type": "channel"}) is False
+        assert is_dm({"channel_type": "im"}) is True
 
     @patch("config.refresh_data", return_value=True)
     def test_refresh_success(self, mock_refresh):
@@ -452,9 +456,10 @@ class TestKarmaHandlers:
         app = MagicMock()
         handlers = {}
 
-        def capture_message(pattern):
+        def capture_message(pattern, *args, **kwargs):
             def decorator(fn):
                 key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+                fn._matchers = kwargs.get("matchers") or []
                 handlers[key] = fn
                 return fn
 
@@ -631,7 +636,10 @@ class TestDevopsHandlers:
 
 class TestSupportHandlers:
     def _register(self):
-        from support_handlers import register_support_handlers
+        from support_handlers import (
+            register_support_handlers,
+            register_ticket_notifier,
+        )
 
         app = MagicMock()
         app.client.conversations_list.return_value = {
@@ -639,15 +647,17 @@ class TestSupportHandlers:
         }
         handlers = {}
 
-        def capture_message(pattern):
+        def capture_message(pattern, *args, **kwargs):
             def decorator(fn):
                 key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+                fn._matchers = kwargs.get("matchers") or []
                 handlers[key] = fn
                 return fn
 
             return decorator
 
         app.message = capture_message
+        register_ticket_notifier(app)
         register_support_handlers(app)
         return app, handlers
 
@@ -851,27 +861,12 @@ class TestSupportHandlers:
         assert config.twilio_client.messages.create.call_args[1]["to"] == "+17853046476"
         assert "Eric" in say.call_args[1]["text"]
 
-    @patch("support_handlers.get_user", return_value="Eric")
-    @patch(
-        "support_handlers.get_weekend_duty",
-        return_value={"summary": "Eric - Weekend Duty"},
-    )
-    def test_weekend_duty_test_ignored_outside_tickets(self, mock_duty, mock_user):
-        import config
-
-        config.bywaterbot_data = {"users": {"Eric": {"sms": "+17853046476"}}}
-        config.twilio_client = MagicMock()
-        config.twilio_phone = "+15559999999"
-
+    def test_weekend_duty_test_ignored_outside_tickets(self):
         app, handlers = self._register()
-        say = MagicMock()
-        context = {"matches": (" sms",)}
-        message = {"channel": "COTHER", "text": "test weekend duty sms"}
-
-        handlers[self._DUTY_TEST_PATTERN](say, context, message)
-
-        say.assert_not_called()
-        config.twilio_client.messages.create.assert_not_called()
+        # Restricted to #tickets by a listener matcher ( CTICKETS in this harness )
+        (in_tickets,) = handlers[self._DUTY_TEST_PATTERN]._matchers
+        assert in_tickets({"channel": "COTHER"}) is False
+        assert in_tickets({"channel": "CTICKETS"}) is True
 
     @patch("support_handlers.get_user", return_value="Yannis")
     @patch(
@@ -959,22 +954,15 @@ class TestSupportHandlers:
         say.assert_called_once()
         assert "not found" in say.call_args[0][0].lower()
 
-    @patch("support_handlers.zoho_configured", return_value=True)
-    @patch("support_handlers.get_zoho_ticket")
-    def test_handle_zoho_ticket_ignores_bot_messages(
-        self, mock_get_ticket, mock_configured
-    ):
-        # The Zoho Flow "New Ticket" announcement is a bot message and must not
-        # trigger a second lookup
+    def test_handle_zoho_ticket_ignores_bot_messages(self):
+        # The Zoho Flow "New Ticket" announcement is a bot message; a listener
+        # matcher keeps the lookup off it, so it neither does a second lookup nor
+        # shadows the new-ticket notifier registered ahead of it
         app, handlers = self._register()
-        say = MagicMock()
-        context = {"matches": ("zd", "215390")}
-        message = {"bot_id": "B08GUPHPLG0", "text": "*New Ticket:* ZD #215390 - x"}
-
-        handlers[self._ZOHO_TICKET_PATTERN](say, context, message)
-
-        say.assert_not_called()
-        mock_get_ticket.assert_not_called()
+        (not_bot,) = handlers[self._ZOHO_TICKET_PATTERN]._matchers
+        assert not_bot({"bot_id": "B08GUPHPLG0"}) is False
+        assert not_bot({"subtype": "bot_message"}) is False
+        assert not_bot({"text": "zd 215390", "user": "U1"}) is True
 
 
 # ---------------------------------------------------------------------------
@@ -1064,9 +1052,10 @@ class TestPartnerHandlers:
         app = MagicMock()
         handlers = {}
 
-        def capture_message(pattern):
+        def capture_message(pattern, *args, **kwargs):
             def decorator(fn):
                 key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+                fn._matchers = kwargs.get("matchers") or []
                 handlers[key] = fn
                 return fn
 
@@ -1143,3 +1132,449 @@ class TestPartnerHandlers:
 
         text = say.call_args[1]["text"]
         assert text.count("* ") == len(PARTNERS["rapido"])
+
+
+# ---------------------------------------------------------------------------
+# bot_functions data-persistence tests
+# ---------------------------------------------------------------------------
+
+import bot_functions
+
+
+class TestDataPersistence:
+    def test_parse_github_repo_url(self):
+        coords = bot_functions._parse_github_repo_url(
+            "https://github.com/bywatersolutions/secret-repo/blob/main/data.json"
+        )
+        assert coords == ("bywatersolutions", "secret-repo", "main", "data.json")
+
+    def test_parse_github_repo_url_invalid(self):
+        assert bot_functions._parse_github_repo_url("https://example.com/x") is None
+
+    @patch.dict(
+        os.environ,
+        {
+            "BYWATER_BOT_DATA_URL": "https://github.com/o/r/blob/main/data.json",
+            "BYWATER_BOT_GITHUB_TOKEN": "tok",
+        },
+        clear=True,
+    )
+    @patch("bot_functions.requests.get")
+    def test_read_for_update_github(self, mock_get):
+        import base64
+
+        content = base64.b64encode(
+            json.dumps({"users": {"Eric": {"sms": "+1"}}}).encode()
+        ).decode()
+        mock_get.return_value = MagicMock(status_code=200)
+        mock_get.return_value.json.return_value = {"sha": "abc123", "content": content}
+
+        data, ctx = bot_functions.read_bywaterbot_data_for_update()
+        assert data["users"]["Eric"]["sms"] == "+1"
+        assert ctx["source"] == "github"
+        assert ctx["sha"] == "abc123"
+        assert ctx["owner"] == "o" and ctx["repo"] == "r" and ctx["branch"] == "main"
+
+    @patch("bot_functions.requests.put")
+    def test_write_github_commits_with_sha(self, mock_put):
+        mock_put.return_value = MagicMock(status_code=200)
+        ctx = {
+            "source": "github",
+            "owner": "o",
+            "repo": "r",
+            "branch": "main",
+            "path": "data.json",
+            "sha": "abc123",
+            "token": "tok",
+        }
+        assert bot_functions.write_bywaterbot_data({"users": {}}, ctx, "msg") is True
+        body = mock_put.call_args[1]["json"]
+        assert body["sha"] == "abc123"
+        assert body["branch"] == "main"
+        assert body["message"] == "msg"
+        assert "content" in body
+
+    def test_local_read_write_roundtrip(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("BYWATER_BOT_DATA_URL", raising=False)
+        monkeypatch.delenv("BYWATER_BOT_GITHUB_TOKEN", raising=False)
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "data.json").write_text(json.dumps({"users": {"Kyle": {}}}))
+
+        data, ctx = bot_functions.read_bywaterbot_data_for_update()
+        assert ctx["source"] == "local"
+        data["users"]["Kyle"]["sms"] = "+19998887777"
+        assert bot_functions.write_bywaterbot_data(data, ctx, "msg") is True
+
+        reread = json.loads((tmp_path / "data.json").read_text())
+        assert reread["users"]["Kyle"]["sms"] == "+19998887777"
+
+
+# ---------------------------------------------------------------------------
+# contact_handlers tests
+# ---------------------------------------------------------------------------
+
+import contact_handlers
+
+CLAIM_KEY = r"^\s*claim\s+(.+)"
+SET_SMS_KEY = (
+    r"^\s*(?:set|update)\s+my\s+(?:sms|number|phone|cell)" r"(?:\s+(?:to|is|=))?\s+(.+)"
+)
+MY_INFO_KEY = r"^\s*(?:my\s+(?:contact\s+)?info|whoami)\s*$"
+
+
+class TestNormalizePhone:
+    def test_us_ten_digits(self):
+        assert contact_handlers.normalize_phone("207-660-2101") == "+12076602101"
+
+    def test_us_eleven_digits(self):
+        assert contact_handlers.normalize_phone("1 (207) 660-2101") == "+12076602101"
+
+    def test_already_e164(self):
+        assert contact_handlers.normalize_phone("+12076602101") == "+12076602101"
+
+    def test_invalid(self):
+        assert contact_handlers.normalize_phone("not a number") is None
+
+
+class TestContactHandlers:
+    def _register(self):
+        from contact_handlers import register_contact_handlers
+
+        app = MagicMock()
+        handlers = {}
+
+        def capture_message(pattern, *args, **kwargs):
+            def decorator(fn):
+                key = pattern.pattern if isinstance(pattern, re.Pattern) else pattern
+                fn._matchers = kwargs.get("matchers") or []
+                handlers[key] = fn
+                return fn
+
+            return decorator
+
+        app.message = capture_message
+        register_contact_handlers(app)
+        return app, handlers
+
+    @patch("contact_handlers.write_bywaterbot_data", return_value=True)
+    @patch("contact_handlers.read_bywaterbot_data_for_update")
+    def test_claim_new_name(self, mock_read, mock_write):
+        import config
+
+        config.bywaterbot_data = {}
+        data = {"users": {}}
+        mock_read.return_value = (data, {"source": "local", "path": "data.json"})
+
+        app, handlers = self._register()
+        say = MagicMock()
+        message = {"channel_type": "im", "user": "U1"}
+        context = {"matches": ("Laura O",)}
+
+        handlers[CLAIM_KEY](message, say, context)
+
+        assert data["users"]["Laura O"]["slack_id"] == "U1"
+        mock_write.assert_called_once()
+        assert "Laura O" in say.call_args[0][0]
+
+    @patch("contact_handlers.write_bywaterbot_data", return_value=True)
+    @patch("contact_handlers.read_bywaterbot_data_for_update")
+    def test_claim_refused_when_owned_by_other(self, mock_read, mock_write):
+        data = {"users": {"Eric": {"sms": "+1", "slack_id": "U2"}}}
+        mock_read.return_value = (data, {"source": "local", "path": "data.json"})
+
+        app, handlers = self._register()
+        say = MagicMock()
+        message = {"channel_type": "im", "user": "U1"}
+        context = {"matches": ("Eric",)}
+
+        handlers[CLAIM_KEY](message, say, context)
+
+        assert "already claimed" in say.call_args[0][0].lower()
+        mock_write.assert_not_called()
+        assert data["users"]["Eric"]["slack_id"] == "U2"
+
+    @patch("contact_handlers.write_bywaterbot_data", return_value=True)
+    @patch("contact_handlers.read_bywaterbot_data_for_update")
+    def test_set_my_sms_when_claimed(self, mock_read, mock_write):
+        import config
+
+        config.bywaterbot_data = {}
+        data = {"users": {"Eric": {"sms": "+1", "slack_id": "U1"}}}
+        mock_read.return_value = (data, {"source": "local", "path": "data.json"})
+
+        app, handlers = self._register()
+        say = MagicMock()
+        message = {"channel_type": "im", "user": "U1"}
+        context = {"matches": ("207-660-2101",)}
+
+        handlers[SET_SMS_KEY](message, say, context)
+
+        assert data["users"]["Eric"]["sms"] == "+12076602101"
+        mock_write.assert_called_once()
+        assert "2101" in say.call_args[0][0]
+
+    @patch("contact_handlers.write_bywaterbot_data", return_value=True)
+    @patch("contact_handlers.read_bywaterbot_data_for_update")
+    def test_set_my_sms_requires_claim(self, mock_read, mock_write):
+        data = {"users": {}}
+        mock_read.return_value = (data, {"source": "local", "path": "data.json"})
+
+        app, handlers = self._register()
+        say = MagicMock()
+        message = {"channel_type": "im", "user": "U1"}
+        context = {"matches": ("207-660-2101",)}
+
+        handlers[SET_SMS_KEY](message, say, context)
+
+        assert "claim" in say.call_args[0][0].lower()
+        mock_write.assert_not_called()
+
+    @patch("contact_handlers.write_bywaterbot_data", return_value=True)
+    @patch("contact_handlers.read_bywaterbot_data_for_update")
+    def test_set_my_sms_rejects_bad_number(self, mock_read, mock_write):
+        app, handlers = self._register()
+        say = MagicMock()
+        message = {"channel_type": "im", "user": "U1"}
+        context = {"matches": ("nope",)}
+
+        handlers[SET_SMS_KEY](message, say, context)
+
+        assert "phone number" in say.call_args[0][0].lower()
+        mock_read.assert_not_called()
+        mock_write.assert_not_called()
+
+    def test_my_info_shows_masked_number(self):
+        import config
+
+        config.bywaterbot_data = {
+            "users": {"Eric": {"sms": "+12076602101", "slack_id": "U1"}}
+        }
+
+        app, handlers = self._register()
+        say = MagicMock()
+        message = {"channel_type": "im", "user": "U1"}
+
+        handlers[MY_INFO_KEY](message, say)
+
+        text = say.call_args[0][0]
+        assert "Eric" in text
+        assert "2101" in text
+        assert "12076602101" not in text  # full number must be masked
+
+    def test_my_info_unclaimed(self):
+        import config
+
+        config.bywaterbot_data = {"users": {}}
+
+        app, handlers = self._register()
+        say = MagicMock()
+        message = {"channel_type": "im", "user": "U1"}
+
+        handlers[MY_INFO_KEY](message, say)
+
+        assert "claim" in say.call_args[0][0].lower()
+
+    def test_commands_ignored_outside_dm(self):
+        app, handlers = self._register()
+        # All three contact commands are DM-only via a listener matcher
+        for key in (CLAIM_KEY, SET_SMS_KEY, MY_INFO_KEY):
+            (is_dm,) = handlers[key]._matchers
+            assert is_dm({"channel_type": "channel"}) is False
+            assert is_dm({"channel_type": "im"}) is True
+
+
+# ---------------------------------------------------------------------------
+# message_matchers tests
+# ---------------------------------------------------------------------------
+
+from message_matchers import is_direct_message, is_not_bot_message
+
+
+class TestMessageMatchers:
+    def test_is_direct_message(self):
+        assert is_direct_message({"channel_type": "im"}) is True
+        assert is_direct_message({"channel_type": "channel"}) is False
+        assert is_direct_message({}) is False
+
+    def test_is_not_bot_message_human(self):
+        assert is_not_bot_message({"user": "U1", "text": "hi"}) is True
+
+    def test_is_not_bot_message_bot_id(self):
+        assert is_not_bot_message({"bot_id": "B08GUPHPLG0"}) is False
+
+    def test_is_not_bot_message_subtype(self):
+        assert is_not_bot_message({"subtype": "bot_message"}) is False
+
+
+# ---------------------------------------------------------------------------
+# Handler routing / shadowing — real Bolt dispatch, production registration order
+# ---------------------------------------------------------------------------
+
+import bywaterbot
+
+
+def _build_real_app():
+    """A real Bolt App with every handler registered via bywaterbot.register_handlers.
+
+    Uses the actual production registration order so a reordering or a missing
+    matcher that reintroduces handler shadowing fails these tests.
+    """
+    from slack_bolt import App
+    from slack_bolt.authorization import AuthorizeResult
+
+    app = App(
+        token="xoxb-test",
+        signing_secret="secret",
+        token_verification_enabled=False,
+        request_verification_enabled=False,
+        ssl_check_enabled=False,
+        raise_error_for_unhandled_request=False,
+        authorize=lambda *a, **k: AuthorizeResult(
+            enterprise_id=None,
+            team_id="T1",
+            bot_user_id="UBOTUSER",
+            bot_id="BBOTSELF",
+            bot_token="xoxb-test",
+        ),
+    )
+    client = MagicMock()
+    client.conversations_list.return_value = {
+        "channels": [
+            {"name": "tickets", "id": "CTICKETS"},
+            {"name": "devops-alerts", "id": "CALERTS"},
+            {"name": "devops", "id": "CDEVOPS"},
+        ]
+    }
+    client.users_list.return_value = {"members": []}
+    client.auth_test.return_value = {"user_id": "UBOTUSER"}
+    app._client = client
+
+    import config
+
+    config.bywaterbot_data = {"users": {"Eric": {"sms": "+15550000000"}}}
+    bywaterbot.register_handlers(app)
+    return app
+
+
+def _winning_handler(app, event):
+    """Name of the listener Bolt would actually run for this event.
+
+    Replicates App.dispatch's first-match-wins selection ( the first listener
+    whose matchers and listener middleware pass ) without executing handler
+    bodies, so routing/shadowing can be asserted on the pinned slack_bolt 1.14.3
+    without mocking every handler's dependencies.
+    """
+    from slack_bolt.request import BoltRequest
+    from slack_bolt.response import BoltResponse
+    from slack_bolt.util.utils import get_name_for_callable
+
+    req = BoltRequest(
+        body={"type": "event_callback", "team_id": "T1", "event": event},
+        mode="socket_mode",
+    )
+    resp = BoltResponse(status=200)
+    for listener in app._listeners:
+        if listener.matches(req=req, resp=resp):
+            _, terminated = listener.run_middleware(req=req, resp=resp)
+            if not terminated:
+                return get_name_for_callable(listener.ack_function)
+    return None
+
+
+def _event(text, channel="CTICKETS", channel_type="channel", bot=False, user="UHUMAN"):
+    event = {
+        "type": "message",
+        "channel": channel,
+        "ts": "1.1",
+        "channel_type": channel_type,
+        "text": text,
+    }
+    if bot:
+        event["subtype"] = "bot_message"
+        event["bot_id"] = "BZOHOFLOW"
+    else:
+        event["user"] = user
+    return event
+
+
+class TestHandlerRouting:
+    """The right handler wins for each message under real first-match dispatch."""
+
+    TICKET = (
+        "*New Ticket:* ZD #215440 - Aspen searches timing out\n"
+        "*Product:* Koha\n*Partner:* CLAMS\n"
+        "<https://help.bywatersolutions.com/support/x#Cases/dv/1>"
+    )
+
+    def test_zoho_new_ticket_reaches_notifier(self):
+        # The Zoho Flow post contains "help" ( in the URL ) and "ZD #215440",
+        # which match message_help and the ticket lookup; it must still win.
+        app = _build_real_app()
+        assert (
+            _winning_handler(app, _event(self.TICKET, bot=True))
+            == "handle_ticket_created"
+        )
+
+    def test_devops_failure_with_trigger_words_reaches_watcher(self):
+        # A failure post containing "help"/"hello"/"bug 5" must not be swallowed
+        # by a human handler before reaching the #devops-alerts watcher.
+        app = _build_real_app()
+        for text in (
+            "Build failed, need help",
+            "hello, the build failed",
+            "rebase failed on bug 5",
+        ):
+            assert (
+                _winning_handler(app, _event(text, channel="CALERTS", bot=True))
+                == "handle_alerts_message"
+            )
+
+    def test_help_is_dm_only_and_does_not_shadow_channels(self):
+        app = _build_real_app()
+        assert (
+            _winning_handler(app, _event("help", channel="D1", channel_type="im"))
+            == "message_help"
+        )
+        # "help" in a channel must not be grabbed ( and thus shadowed ) by help
+        assert _winning_handler(app, _event("I need help here")) != "message_help"
+
+    def test_human_commands_route_correctly(self):
+        app = _build_real_app()
+        cases = {
+            "hello": "message_hello",
+            "kyle++": "handle_individual_karma",
+            "zd 215390": "handle_zoho_ticket",
+            "bug 38120": "handle_koha_bug",
+            "branches 38120": "handle_branches",
+            "TEXT Kyle hi": "handle_text_command",
+            "innreach partners": "handle_partners",
+        }
+        for text, expected in cases.items():
+            assert _winning_handler(app, _event(text)) == expected
+
+    def test_partner_and_contact_not_shadowed_by_watcher(self):
+        # These regressed before the watcher was moved last: the catch-all
+        # @app.event("message") used to swallow them.
+        app = _build_real_app()
+        assert _winning_handler(app, _event("innreach partners")) == "handle_partners"
+        assert (
+            _winning_handler(
+                app, _event("claim Laura O", channel="D1", channel_type="im")
+            )
+            == "claim_name"
+        )
+        assert (
+            _winning_handler(app, _event("my info", channel="D1", channel_type="im"))
+            == "my_info"
+        )
+
+    def test_weekend_duty_test_only_in_tickets(self):
+        app = _build_real_app()
+        assert (
+            _winning_handler(app, _event("test weekend duty sms", channel="CTICKETS"))
+            == "handle_weekend_duty_test"
+        )
+        assert (
+            _winning_handler(app, _event("test weekend duty sms", channel="CXYZ"))
+            != "handle_weekend_duty_test"
+        )
