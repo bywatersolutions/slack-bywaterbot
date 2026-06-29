@@ -45,6 +45,16 @@ noted, commands work in any channel the bot is in or in a direct message.
 * `Quote Please` — Posts a random quote to `#general`.
 * `list slack names` — List the names and Slack IDs the bot knows.
 
+#### Your contact info (DM only)
+
+Self-service editing of your own entry in `data.json`. You can only edit your
+own info — the bot matches you by your stored Slack id — and changes are
+committed back to the private data repo, so they survive the hourly refresh.
+
+* `claim <name>` — Link your Slack account to your weekend/fire-duty calendar name so the bot can find you. _e.g._ `claim Laura O`
+* `set my sms <number>` — Set the mobile number the bot texts for your duty alerts. _e.g._ `set my sms +12025550123`
+* `my info` — Show the name and ( masked ) number on file for you.
+
 #### Admin (DM only)
 
 * `Refresh Data` — Reload contact/duty data from its source.
@@ -81,6 +91,8 @@ This project uses a number of environment variables to function:
 
 * SLACK_BOT_TOKEN - Slack bot token
 * SLACK_APP_TOKEN - Slack app token
+* BYWATER_BOT_DATA_URL - GitHub URL of the private `data.json` ( contact/duty map + secrets ) the bot loads and refreshes hourly
+* BYWATER_BOT_GITHUB_TOKEN - Token used to read `data.json`. Needs **contents: write** on that repo for the self-service `claim` / `set my sms` commands to commit updates back
 * QUOTES_CSV_URL - URL to a CSV of quotes
 * KARMA_CSV_URL - URL to a CSV of karma comment possibilities
 * CREDENTIALS_JSON - Download crendentials.json from Google, put contents in this variable

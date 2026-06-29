@@ -5,6 +5,7 @@ Provides utility functions for the ByWater Slack bot, including channel lookup,
 user mapping, data retrieval, and message handling.
 """
 
+import base64
 import csv
 import json
 import os
@@ -99,6 +100,117 @@ def get_data_from_url(url, token):
     except Exception as e:
         print(f"Error fetching data from URL {url}: {e}")
         return None
+
+
+def _parse_github_repo_url(url):
+    """Parse a github.com blob/edit URL into (owner, repo, branch, path).
+
+    Returns a 4-tuple, or None if the URL isn't a recognizable GitHub file URL.
+    """
+    match = re.search(r"github\.com/([^/]+)/([^/]+)/(?:blob|edit)/([^/]+)/(.+)", url)
+    return match.groups() if match else None
+
+
+def read_bywaterbot_data_for_update():
+    """Read the canonical bywaterbot_data plus a context for writing it back.
+
+    Prefers the private GitHub repo ( the live source ), falling back to the
+    local data.json. Uses the GitHub contents API ( not the raw view ) so we get
+    the file's sha, which is required to commit an update.
+
+    Returns ( data, context ) where context is opaque and passed straight to
+    write_bywaterbot_data(), or ( None, None ) on failure.
+    """
+    url = os.environ.get("BYWATER_BOT_DATA_URL")
+    token = os.environ.get("BYWATER_BOT_GITHUB_TOKEN")
+
+    if url and token:
+        coords = _parse_github_repo_url(url)
+        if not coords:
+            print(f"Could not parse BYWATER_BOT_DATA_URL for update: {url}")
+            return None, None
+        owner, repo, branch, path = coords
+        try:
+            resp = requests.get(
+                f"https://api.github.com/repos/{owner}/{repo}/contents/{path}",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                },
+                params={"ref": branch},
+                timeout=10,
+            )
+            resp.raise_for_status()
+            payload = resp.json()
+            content = base64.b64decode(payload["content"]).decode("utf-8")
+            data = json.loads(content)
+            context = {
+                "source": "github",
+                "owner": owner,
+                "repo": repo,
+                "branch": branch,
+                "path": path,
+                "sha": payload["sha"],
+                "token": token,
+            }
+            return data, context
+        except Exception as e:
+            print(f"Error reading bywaterbot_data from GitHub for update: {e}")
+            return None, None
+
+    # Local fallback ( dev / when no repo is configured )
+    if os.path.exists("data.json"):
+        try:
+            with open("data.json") as f:
+                data = json.load(f)
+            return data, {"source": "local", "path": "data.json"}
+        except Exception as e:
+            print(f"Error reading local data.json for update: {e}")
+            return None, None
+
+    return None, None
+
+
+def write_bywaterbot_data(data, context, commit_message):
+    """Persist bywaterbot_data back to its source. Returns True on success.
+
+    For the GitHub source this commits the whole file ( which also holds the
+    bot's secrets ) via the contents API, so the data is never logged here.
+    """
+    serialized = json.dumps(data, indent=4) + "\n"
+
+    if context["source"] == "github":
+        try:
+            resp = requests.put(
+                f"https://api.github.com/repos/{context['owner']}/{context['repo']}"
+                f"/contents/{context['path']}",
+                headers={
+                    "Authorization": f"Bearer {context['token']}",
+                    "Accept": "application/vnd.github+json",
+                },
+                json={
+                    "message": commit_message,
+                    "content": base64.b64encode(serialized.encode("utf-8")).decode(
+                        "ascii"
+                    ),
+                    "sha": context["sha"],
+                    "branch": context["branch"],
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            return True
+        except Exception as e:
+            print(f"Error writing bywaterbot_data to GitHub: {e}")
+            return False
+
+    try:
+        with open(context["path"], "w") as f:
+            f.write(serialized)
+        return True
+    except Exception as e:
+        print(f"Error writing local data.json: {e}")
+        return False
 
 
 def get_devops_fire_duty_asignee(app, channel_id):
