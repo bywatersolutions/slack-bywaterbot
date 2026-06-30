@@ -15,6 +15,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 # Import configuration and handlers
 from config import load_config, refresh_data
 from bot_functions import get_quote
+from version import __version__
 
 from calendar_functions import get_google_creds
 from devops_handlers import register_devops_handlers
@@ -60,7 +61,7 @@ def register_handlers(app):
 
 
 if __name__ == "__main__":
-    print("ByWaterBot is starting up!")
+    print(f"ByWaterBot {__version__} is starting up!")
 
     # 1. Load Configuration
     load_config()

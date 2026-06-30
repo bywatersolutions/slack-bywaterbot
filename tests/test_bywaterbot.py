@@ -420,6 +420,21 @@ class TestGeneralHandlers:
         say.assert_called_once()
         assert "<@U123>" in say.call_args[0][0]
 
+    def test_version_reports_running_version(self):
+        from version import __version__
+
+        app, handlers = self._register()
+        say = MagicMock()
+        handlers[r"\bversion\b"]({"channel_type": "im"}, say)
+        say.assert_called_once()
+        assert __version__ in say.call_args[0][0]
+
+    def test_version_is_dm_only(self):
+        app, handlers = self._register()
+        (is_dm,) = handlers[r"\bversion\b"]._matchers
+        assert is_dm({"channel_type": "channel"}) is False
+        assert is_dm({"channel_type": "im"}) is True
+
     def test_wow_sends_image_block(self):
         app, handlers = self._register()
         say = MagicMock()
@@ -1578,3 +1593,11 @@ class TestHandlerRouting:
             _winning_handler(app, _event("test weekend duty sms", channel="CXYZ"))
             != "handle_weekend_duty_test"
         )
+
+    def test_version_command_dm_only(self):
+        app = _build_real_app()
+        assert (
+            _winning_handler(app, _event("version", channel="D1", channel_type="im"))
+            == "message_version"
+        )
+        assert _winning_handler(app, _event("version")) != "message_version"

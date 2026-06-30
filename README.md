@@ -44,6 +44,7 @@ noted, commands work in any channel the bot is in or in a direct message.
 * `wow` — Owen Wilson says "wow".
 * `Quote Please` — Posts a random quote to `#general`.
 * `list slack names` — List the names and Slack IDs the bot knows.
+* `version` — Replies with the bot's current version. _(DM only)_
 
 #### Your contact info (DM only)
 
@@ -152,6 +153,14 @@ how to set up the Slack tokens.
 ```bash
 python3 bywaterbot.py
 ```
+
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The running version lives in `version.py` (`__version__`); bump it on release and
+add a matching entry to [CHANGELOG.md](CHANGELOG.md), which is kept in the
+[Keep a Changelog](https://keepachangelog.com/en/2.0.0/) format. DM the bot
+`version` to see what's running, and tag releases `vX.Y.Z` to match.
 
 ## Authors
 

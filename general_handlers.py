@@ -14,6 +14,7 @@ import re
 import config
 from bot_functions import get_name_to_id_mapping, get_quote
 from message_matchers import is_direct_message, is_not_bot_message
+from version import __version__
 
 
 def register_general_handlers(app):
@@ -60,6 +61,7 @@ def register_general_handlers(app):
             '• `wow` — Owen Wilson says "wow".\n'
             "• `Quote Please` — I post a random quote to #general.\n"
             "• `list slack names` — List the names and Slack IDs I know.\n"
+            "• `version` — Tell you which version I'm running ( DM me only ).\n"
             "\n"
             "*Your contact info (DM me only)*\n"
             "• `claim <name>` — Link your Slack account to your weekend/fire-duty "
@@ -82,6 +84,12 @@ def register_general_handlers(app):
             "Acknowledge button and keep reminding them until they click it."
         )
         say(text)
+
+    # Report the running version, DM only: "version"
+    @app.message(re.compile(r"\bversion\b", re.IGNORECASE), matchers=[is_direct_message])
+    def message_version(message, say):
+        """Report the running ByWaterBot version (DM only)."""
+        say(f":robot_face: ByWaterBot version {__version__}")
 
     @app.message("hello", matchers=[is_not_bot_message])
     def message_hello(message, say):
