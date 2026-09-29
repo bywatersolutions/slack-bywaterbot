@@ -25,8 +25,8 @@ PARTNERS = {
         "akronlibrary",
         "cuyahoga",
         "mrcpl",
-        "westlake",
         "tmcpl",
+        "westlake",
     ],
 }
 
