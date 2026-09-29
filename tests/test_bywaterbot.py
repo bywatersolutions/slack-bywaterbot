@@ -1106,7 +1106,7 @@ class TestPartnerHandlers:
         say.assert_called_once()
         text = say.call_args[1]["text"]
         assert "Rapido Partners" in text
-        assert "(4)" in text
+        assert "(5)" in text
         for partner in PARTNERS["rapido"]:
             assert partner in text
 
