@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-09-29
+
+### Added
+- New partner to Rapdio partner list
+- Central name to INNReach partner list
+
 ## [1.0.0] - 2026-06-30
 
 First versioned release of ByWaterBot. This starts version tracking; the

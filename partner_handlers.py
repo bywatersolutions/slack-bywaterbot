@@ -13,19 +13,20 @@ from message_matchers import is_not_bot_message
 # TODO: Replace hardcoded lists with Zoho CRM API once access is granted
 PARTNERS = {
     "innreach": [
-        "amadorlibrary",
+        "amadorlibrary - link+",
         "bhpl",
-        "cdoc",
-        "clic",
-        "cocollege",
-        "eldoradolibrary",
-        "northville",
+        "cdoc - prospector",
+        "clic - prospector",
+        "cocollege - prospector",
+        "eldoradolibrary - link+",
+        "northville - melcat",
     ],
     "rapido": [
         "akronlibrary",
         "cuyahoga",
         "mrcpl",
         "westlake",
+        "tmcpl",
     ],
 }
 
