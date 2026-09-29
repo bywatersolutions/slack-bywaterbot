@@ -5,6 +5,7 @@ Main application module for the ByWater Slack bot. Sets up the Slack Bolt app, l
 and registers message handlers from other modules.
 """
 
+import logging
 import os
 import threading
 import time
@@ -61,6 +62,9 @@ def register_handlers(app):
 
 
 if __name__ == "__main__":
+    # The Slack SDK reports disconnects and reconnects at INFO, which Python drops unless logging is configured
+    logging.basicConfig(level=logging.INFO)
+
     print(f"ByWaterBot {__version__} is starting up!")
 
     # 1. Load Configuration
