@@ -15,6 +15,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   reconnect messages ( logged at INFO ) reach the container logs.
 - Add a 10 second timeout to the Koha bug and branch lookups so a hung request
   can't tie up one of Bolt's handler threads for good.
+- Upgrade slack-sdk from 3.18.3 to 3.44.1 and slack-bolt from 1.14.3 to 1.30.0
+  for the Socket Mode reconnect fixes; the old client could go silent after a
+  reconnect.
 
 ## [1.0.1] - 2026-09-29
 

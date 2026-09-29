@@ -27,8 +27,8 @@ requests-toolbelt==0.9.1
 rsa==4.9
 schedule==1.2.0
 six==1.16.0
-slack-bolt==1.14.3
-slack-sdk==3.18.3
+slack-bolt==1.30.0
+slack-sdk==3.44.1
 tomli==2.0.1
 twilio==7.14.0
 typing_extensions==4.3.0
