@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Configure Python logging at startup so the Slack SDK's disconnect and
   reconnect messages ( logged at INFO ) reach the container logs.
+- Add a 10 second timeout to the Koha bug and branch lookups so a hung request
+  can't tie up one of Bolt's handler threads for good.
 
 ## [1.0.1] - 2026-09-29
 

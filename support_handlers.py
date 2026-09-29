@@ -147,7 +147,8 @@ def register_support_handlers(app):
         bug = context["matches"][1]
         try:
             url = requests.get(
-                f"https://bugs.koha-community.org/bugzilla3/rest/bug/{bug}"
+                f"https://bugs.koha-community.org/bugzilla3/rest/bug/{bug}",
+                timeout=10,
             )
             text = url.text
             data = json.loads(text)
@@ -298,7 +299,7 @@ def register_support_handlers(app):
         try:
             url = f"https://find-branches-by-bugs.tools.bywatersolutions.com/{bug}/{shortname}"
             print(f"URL: {url}")
-            res = requests.get(url)
+            res = requests.get(url, timeout=10)
             text = res.text
             data = json.loads(text)
             pp.pprint(data)
