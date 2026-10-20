@@ -95,6 +95,7 @@ reads it at startup, every hour, and when you DM it `Refresh Data`. Every tab
 has a header row in row 1.
 
 * `users` - One row per person: `name` ( as it appears on the duty calendars ), `sms` ( e.g. `+12025550123`; keep this column formatted as plain text ) and `slack_id` ( filled in by `claim` ). The `claim` and `set my sms` commands write to this tab.
+* `partners` - One row per partner: `product` ( `innreach` or `rapido` ) and `partner`. The `innreach partners` and `rapido partners` commands list these.
 
 The bot reads and writes the sheet as a Google service account:
 

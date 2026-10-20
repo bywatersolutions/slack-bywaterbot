@@ -22,6 +22,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Google Sheet instead of `data.json` in a private GitHub repo, and `claim` /
   `set my sms` update the sheet. Set `BYWATER_BOT_SHEET_ID` and
   `GOOGLE_SERVICE_ACCOUNT_JSON`; the README explains the setup.
+- The INN-Reach and Rapido partner lists now come from the sheet's
+  `partners` tab, so adding a partner no longer needs a new release.
 
 ### Removed
 

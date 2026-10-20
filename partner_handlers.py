@@ -8,27 +8,8 @@ Commands:
 
 import re
 
+import config
 from message_matchers import is_not_bot_message
-
-# TODO: Replace hardcoded lists with Zoho CRM API once access is granted
-PARTNERS = {
-    "innreach": [
-        "amadorlibrary - link+",
-        "bhpl",
-        "cdoc - prospector",
-        "clic - prospector",
-        "cocollege - prospector",
-        "eldoradolibrary - link+",
-        "northville - melcat",
-    ],
-    "rapido": [
-        "akronlibrary",
-        "cuyahoga",
-        "mrcpl",
-        "tmcpl",
-        "westlake",
-    ],
-}
 
 
 def register_partner_handlers(app):
@@ -40,7 +21,8 @@ def register_partner_handlers(app):
     def handle_partners(say, context):
         """List partners for INN-Reach or Rapido."""
         product = context["matches"][0].lower()
-        partners = PARTNERS[product]
+        # TODO: Replace the sheet's 'partners' tab with Zoho CRM API once access is granted
+        partners = config.bywaterbot_data.get("partners", {}).get(product, [])
         label = "INN-Reach" if product == "innreach" else "Rapido"
 
         lines = [f"*{label} Partners ({len(partners)}):*"]

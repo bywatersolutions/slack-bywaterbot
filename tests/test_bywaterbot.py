@@ -104,7 +104,7 @@ def _sheet_response(payload):
 
 class TestGetDataFromSheet:
     @patch("bot_functions._sheet_session")
-    def test_parses_users_tab(self, mock_session):
+    def test_parses_tabs(self, mock_session):
         mock_session.return_value.get.return_value = _sheet_response(
             {
                 "valueRanges": [
@@ -117,7 +117,16 @@ class TestGetDataFromSheet:
                             ["", "+15550000000"],
                             ["Laura O"],
                         ]
-                    }
+                    },
+                    {
+                        "values": [
+                            ["product", "partner"],
+                            ["innreach", "bhpl"],
+                            ["Rapido", " westlake "],
+                            ["rapido"],
+                            ["rapido", "akronlibrary"],
+                        ]
+                    },
                 ]
             }
         )
@@ -129,7 +138,11 @@ class TestGetDataFromSheet:
                 "Kyle": {"sms": "+15551234567", "slack_id": "U1"},
                 "Eric": {"sms": "+15557654321"},
                 "Laura O": {},
-            }
+            },
+            "partners": {
+                "innreach": ["bhpl"],
+                "rapido": ["westlake", "akronlibrary"],
+            },
         }
         called_url = mock_session.return_value.get.call_args[0][0]
         assert called_url.endswith("/sheet123/values:batchGet")
@@ -1183,13 +1196,26 @@ class TestZohoFunctions:
 # partner_handlers tests
 # ---------------------------------------------------------------------------
 
-from partner_handlers import PARTNERS
+PARTNERS = {
+    "innreach": [
+        "amadorlibrary - link+",
+        "bhpl",
+        "cdoc - prospector",
+        "clic - prospector",
+        "cocollege - prospector",
+        "eldoradolibrary - link+",
+        "northville - melcat",
+    ],
+    "rapido": ["akronlibrary", "cuyahoga", "mrcpl", "tmcpl", "westlake"],
+}
 
 
 class TestPartnerHandlers:
-    def _register(self):
+    def _register(self, partners=PARTNERS):
+        import config
         from partner_handlers import register_partner_handlers
 
+        config.bywaterbot_data = {"partners": partners}
         app = MagicMock()
         handlers = {}
 
@@ -1237,8 +1263,25 @@ class TestPartnerHandlers:
             assert partner in text
 
     def test_partners_sorted_alphabetically(self):
-        for product, partners in PARTNERS.items():
-            assert partners == sorted(partners), f"{product} partners not sorted"
+        app, handlers = self._register({"rapido": ["westlake", "akronlibrary"]})
+        say = MagicMock()
+        context = {"matches": ("rapido",)}
+
+        handler = handlers[r"(innreach|rapido)\s+partners"]
+        handler(say, context)
+
+        text = say.call_args[1]["text"]
+        assert text.index("akronlibrary") < text.index("westlake")
+
+    def test_no_partners_in_sheet(self):
+        app, handlers = self._register({})
+        say = MagicMock()
+        context = {"matches": ("rapido",)}
+
+        handler = handlers[r"(innreach|rapido)\s+partners"]
+        handler(say, context)
+
+        assert "(0)" in say.call_args[1]["text"]
 
     def test_innreach_label_formatting(self):
         app, handlers = self._register()

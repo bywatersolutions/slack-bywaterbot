@@ -104,14 +104,22 @@ def get_data_from_sheet(sheet_id):
     try:
         response = _sheet_session().get(
             f"{SHEETS_API_URL}/{sheet_id}/values:batchGet",
-            params={"ranges": ["users"]},
+            params={"ranges": ["users", "partners"]},
             timeout=10,
         )
         response.raise_for_status()
-        (users_tab,) = response.json()["valueRanges"]
+        users_tab, partners_tab = response.json()["valueRanges"]
 
         users, _ = _sheet_users(users_tab.get("values", []))
-        return {"users": users}
+
+        # One row per partner: product ( innreach / rapido ), partner
+        partners = {}
+        for row in partners_tab.get("values", [])[1:]:
+            product, partner = (list(row) + ["", ""])[:2]
+            if product.strip() and partner.strip():
+                partners.setdefault(product.strip().lower(), []).append(partner.strip())
+
+        return {"users": users, "partners": partners}
     except Exception as e:
         print(f"Error fetching data from Google Sheet {sheet_id}: {e}")
         return None
