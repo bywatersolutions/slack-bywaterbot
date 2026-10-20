@@ -4,11 +4,21 @@ DevOps Handlers Module
 Contains message handlers for:
 - Monitoring #devops for fire emojis
 - Alerting users on Fire Duty
+- Keeping #devops fires-only ( top-level posts without a fire reaction are removed )
 """
+
+import os
+import threading
+
+from slack_sdk import WebClient
 
 import config
 from calendar_functions import get_weekday_duty, get_user
 from bot_functions import get_devops_fire_duty_asignee, get_channel_id_by_name
+from message_matchers import is_not_bot_message
+
+# How long a new top-level #devops post has to get a fire reaction before it's removed.
+FIRE_GRACE_MINUTES = int(os.environ.get("DEVOPS_FIRE_GRACE_MINUTES", "2"))
 
 
 def register_devops_handlers(app):
@@ -189,3 +199,88 @@ def register_devops_handlers(app):
     def handle_reaction_events(body, logger):
         """Entry point for reaction events."""
         handle_devops_fires(body, logger)
+
+    def in_devops_top_level(message):
+        """Listener matcher: only match new top-level posts in #devops.
+
+        Thread replies ( including "also send to channel" ones ), edits and
+        join/leave messages don't match, so they fall through to the other
+        handlers. If we couldn't resolve #devops at startup, match nothing
+        rather than enforce on every channel.
+        """
+        if devops_channel_id is None or message.get("channel") != devops_channel_id:
+            return False
+        if message.get("subtype") not in (None, "file_share"):
+            return False
+        thread_ts = message.get("thread_ts")
+        return thread_ts is None or thread_ts == message.get("ts")
+
+    def remove_if_not_fire(channel_id, message_ts, user, text):
+        """Delete a #devops post that never got a fire reaction and DM its author."""
+        try:
+            response = app.client.reactions_get(channel=channel_id, timestamp=message_ts)
+        except Exception as e:
+            # Most likely the author already deleted it
+            print(f"Error getting reactions for #devops message {message_ts}: {e}")
+            return
+
+        reactions = response.get("message", {}).get("reactions", [])
+        if any(reaction.get("name") == "fire" for reaction in reactions):
+            return
+
+        # Bot tokens can only delete the bot's own messages, so this needs an admin's user token
+        admin_user_token = os.environ.get("SLACK_ADMIN_USER_TOKEN")
+        if not admin_user_token:
+            print(f"SLACK_ADMIN_USER_TOKEN is not set; can't remove #devops message {message_ts}")
+            return
+
+        try:
+            WebClient(token=admin_user_token).chat_delete(channel=channel_id, ts=message_ts)
+        except Exception as e:
+            print(f"Error deleting #devops message {message_ts}: {e}")
+            return
+
+        dm_text = (
+            f":fire: <#{channel_id}> is now for fires only, so I removed your message there. "
+            "Only posts with a :fire: reaction stay in the channel, and all discussion should "
+            "happen as replies in the thread of a fire post. "
+            "If this was a fire, repost it and react to it with :fire:."
+        )
+        if text:
+            quoted_text = "\n".join(f"> {line}" for line in text.splitlines())
+            dm_text += f"\n\nHere's what you wrote:\n{quoted_text}"
+
+        try:
+            # Posting to a user id delivers to that user's DM with the bot.
+            app.client.chat_postMessage(channel=user, text=dm_text)
+        except Exception as e:
+            print(f"Error sending #devops removal DM: {e}")
+
+    @app.event("message", matchers=[is_not_bot_message, in_devops_top_level])
+    def enforce_fires_only(message):
+        """Warn the author of a new #devops post, then remove it unless it gets a fire."""
+        channel_id = message.get("channel")
+        message_ts = message.get("ts")
+        user = message.get("user")
+        text = message.get("text", "")
+
+        try:
+            app.client.chat_postEphemeral(
+                channel=channel_id,
+                user=user,
+                text=(
+                    f":fire: <#{channel_id}> is for fires only. React to your message "
+                    f"with :fire: within {FIRE_GRACE_MINUTES} minutes or I'll remove it. "
+                    "Discussion belongs in the thread of a fire post."
+                ),
+            )
+        except Exception as e:
+            print(f"Error sending #devops fires-only warning: {e}")
+
+        timer = threading.Timer(
+            FIRE_GRACE_MINUTES * 60,
+            remove_if_not_fire,
+            args=(channel_id, message_ts, user, text),
+        )
+        timer.daemon = True
+        timer.start()

@@ -43,6 +43,10 @@ def load_config():
         os.environ["KARMA_CSV_URL"] = bywaterbot_data.get("KARMA_CSV_URL", "")
     if "QUOTES_CSV_URL" not in os.environ:
         os.environ["QUOTES_CSV_URL"] = bywaterbot_data.get("QUOTES_CSV_URL", "")
+    if "SLACK_ADMIN_USER_TOKEN" not in os.environ:
+        os.environ["SLACK_ADMIN_USER_TOKEN"] = bywaterbot_data.get(
+            "SLACK_ADMIN_USER_TOKEN", ""
+        )
     if "SLACK_APP_TOKEN" not in os.environ:
         os.environ["SLACK_APP_TOKEN"] = bywaterbot_data.get("SLACK_APP_TOKEN", "")
     if "SLACK_BOT_TOKEN" not in os.environ:

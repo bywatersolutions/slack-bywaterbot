@@ -542,7 +542,7 @@ class TestDevopsHandlers:
         }
         handlers = {}
 
-        def capture_event(event_name):
+        def capture_event(event_name, **kwargs):
             def decorator(fn):
                 handlers[event_name] = fn
                 return fn
@@ -552,6 +552,15 @@ class TestDevopsHandlers:
         app.event = capture_event
         register_devops_handlers(app)
         return app, handlers
+
+    def _run_grace_check(self, app, handlers, text="anyone around?"):
+        """Post a top-level #devops message, then run the check its timer would run."""
+        with patch("devops_handlers.threading.Timer") as mock_timer:
+            handlers["message"](
+                {"channel": "CDEVOPS", "user": "UPOSTER", "ts": "1.1", "text": text}
+            )
+        check = mock_timer.call_args.args[1]
+        check(*mock_timer.call_args.kwargs["args"])
 
     @patch("devops_handlers.get_weekday_duty", return_value=None)
     @patch("devops_handlers.get_devops_fire_duty_asignee", return_value=None)
@@ -642,6 +651,89 @@ class TestDevopsHandlers:
         handlers["reaction_added"](body, logger)
         # Should have posted alert message to slack
         assert app.client.chat_postMessage.call_count >= 1
+
+    @patch("devops_handlers.threading.Timer")
+    def test_top_level_post_warns_and_schedules_check(self, mock_timer):
+        import devops_handlers
+
+        app, handlers = self._register()
+        handlers["message"](
+            {"channel": "CDEVOPS", "user": "UPOSTER", "ts": "1.1", "text": "hi"}
+        )
+
+        app.client.chat_postEphemeral.assert_called_once()
+        assert app.client.chat_postEphemeral.call_args.kwargs["user"] == "UPOSTER"
+        assert mock_timer.call_args.args[0] == devops_handlers.FIRE_GRACE_MINUTES * 60
+        mock_timer.return_value.start.assert_called_once()
+
+    @patch.dict(os.environ, {"SLACK_ADMIN_USER_TOKEN": "xoxp-test"})
+    @patch("devops_handlers.WebClient")
+    def test_post_with_fire_is_kept(self, mock_web_client):
+        app, handlers = self._register()
+        app.client.reactions_get.return_value = {
+            "message": {"reactions": [{"name": "eyes"}, {"name": "fire"}]}
+        }
+
+        self._run_grace_check(app, handlers)
+
+        mock_web_client.return_value.chat_delete.assert_not_called()
+        app.client.chat_postMessage.assert_not_called()
+
+    @patch.dict(os.environ, {"SLACK_ADMIN_USER_TOKEN": "xoxp-test"})
+    @patch("devops_handlers.WebClient")
+    def test_post_without_fire_is_deleted_and_author_dmed(self, mock_web_client):
+        app, handlers = self._register()
+        app.client.reactions_get.return_value = {
+            "message": {"reactions": [{"name": "eyes"}]}
+        }
+
+        self._run_grace_check(app, handlers, text="anyone around?\nlunch?")
+
+        # The delete has to use the admin's user token, not the bot token
+        mock_web_client.assert_called_once_with(token="xoxp-test")
+        mock_web_client.return_value.chat_delete.assert_called_once_with(
+            channel="CDEVOPS", ts="1.1"
+        )
+        app.client.chat_postMessage.assert_called_once()
+        dm = app.client.chat_postMessage.call_args.kwargs
+        assert dm["channel"] == "UPOSTER"
+        assert "fires only" in dm["text"]
+        assert "> anyone around?\n> lunch?" in dm["text"]
+
+    @patch.dict(os.environ, {"SLACK_ADMIN_USER_TOKEN": "xoxp-test"})
+    @patch("devops_handlers.WebClient")
+    def test_no_dm_when_delete_fails(self, mock_web_client):
+        app, handlers = self._register()
+        app.client.reactions_get.return_value = {"message": {}}
+        mock_web_client.return_value.chat_delete.side_effect = Exception(
+            "cant_delete_message"
+        )
+
+        self._run_grace_check(app, handlers)
+
+        app.client.chat_postMessage.assert_not_called()
+
+    @patch.dict(os.environ, {"SLACK_ADMIN_USER_TOKEN": "xoxp-test"})
+    @patch("devops_handlers.WebClient")
+    def test_already_deleted_post_is_ignored(self, mock_web_client):
+        app, handlers = self._register()
+        app.client.reactions_get.side_effect = Exception("message_not_found")
+
+        self._run_grace_check(app, handlers)
+
+        mock_web_client.return_value.chat_delete.assert_not_called()
+        app.client.chat_postMessage.assert_not_called()
+
+    @patch.dict(os.environ, {"SLACK_ADMIN_USER_TOKEN": ""})
+    @patch("devops_handlers.WebClient")
+    def test_nothing_removed_without_admin_token(self, mock_web_client):
+        app, handlers = self._register()
+        app.client.reactions_get.return_value = {"message": {}}
+
+        self._run_grace_check(app, handlers)
+
+        mock_web_client.assert_not_called()
+        app.client.chat_postMessage.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -1496,7 +1588,14 @@ def _winning_handler(app, event):
     return None
 
 
-def _event(text, channel="CTICKETS", channel_type="channel", bot=False, user="UHUMAN"):
+def _event(
+    text,
+    channel="CTICKETS",
+    channel_type="channel",
+    bot=False,
+    user="UHUMAN",
+    thread_ts=None,
+):
     event = {
         "type": "message",
         "channel": channel,
@@ -1509,6 +1608,8 @@ def _event(text, channel="CTICKETS", channel_type="channel", bot=False, user="UH
         event["bot_id"] = "BZOHOFLOW"
     else:
         event["user"] = user
+    if thread_ts:
+        event["thread_ts"] = thread_ts
     return event
 
 
@@ -1543,6 +1644,32 @@ class TestHandlerRouting:
                 _winning_handler(app, _event(text, channel="CALERTS", bot=True))
                 == "handle_alerts_message"
             )
+
+    def test_devops_top_level_posts_reach_fires_only_enforcer(self):
+        # Top-level #devops posts must reach the enforcer even when they look
+        # like a command, or a command handler would claim them first.
+        app = _build_real_app()
+        for text in ("anyone around?", "bug 38120", "kyle++", "hello"):
+            assert (
+                _winning_handler(app, _event(text, channel="CDEVOPS"))
+                == "enforce_fires_only"
+            )
+
+    def test_devops_thread_replies_and_bot_posts_skip_enforcer(self):
+        app = _build_real_app()
+        assert (
+            _winning_handler(
+                app, _event("bug 38120", channel="CDEVOPS", thread_ts="1.0")
+            )
+            == "handle_koha_bug"
+        )
+        assert (
+            _winning_handler(app, _event("deploy done", channel="CDEVOPS", bot=True))
+            != "enforce_fires_only"
+        )
+        edit = _event("anyone around?", channel="CDEVOPS")
+        edit["subtype"] = "message_changed"
+        assert _winning_handler(app, edit) != "enforce_fires_only"
 
     def test_help_is_dm_only_and_does_not_shadow_channels(self):
         app = _build_real_app()

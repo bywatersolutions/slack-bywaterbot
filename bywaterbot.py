@@ -47,15 +47,19 @@ def register_handlers(app):
     Bolt runs only the first @app.message listener that matches a message, so
     order matters. The #tickets new-ticket notifier registers first: its
     specific "New Ticket" pattern must win over the broader help/lookup handlers,
-    which also match the Zoho Flow post. The #devops-alerts watcher uses a
-    catch-all @app.event("message") that matches every message, so it registers
-    last or it shadows the partner and contact commands below it.
+    which also match the Zoho Flow post. The #devops handlers come next: the
+    fires-only enforcer has to see every new top-level #devops post before a
+    command handler ( "bug 123", "name++" ) can claim it, and its matcher skips
+    thread replies and bot posts so those still reach the commands. The
+    #devops-alerts watcher uses a catch-all @app.event("message") that matches
+    every message, so it registers last or it shadows the partner and contact
+    commands below it.
     """
     register_ticket_notifier(app)
+    register_devops_handlers(app)
     register_general_handlers(app)
     register_karma_handlers(app)
     register_support_handlers(app)
-    register_devops_handlers(app)
     register_partner_handlers(app)
     register_contact_handlers(app)
     register_devops_alerts_handlers(app)

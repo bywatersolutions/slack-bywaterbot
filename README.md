@@ -66,6 +66,7 @@ committed back to the private data repo, so they survive the hourly refresh.
 
 * **New weekend tickets** — when a new ticket posts in `#tickets`, the bot texts whoever's on weekend duty.
 * **DevOps fires** — react :fire: to a message in `#devops` and the bot texts the on-call dev/systems person.
+* **#devops is fires only** — a new top-level post in `#devops` gets an ephemeral warning, and if it doesn't have a :fire: reaction after `DEVOPS_FIRE_GRACE_MINUTES` minutes the bot deletes it and DMs the author. Discussion belongs in the thread of a fire post; thread replies and bot posts are left alone. Needs `SLACK_ADMIN_USER_TOKEN`.
 * **#devops-alerts** — see [DevOps alert acknowledgements](#devops-alert-acknowledgements) below.
 
 ### DevOps alert acknowledgements
@@ -92,6 +93,7 @@ This project uses a number of environment variables to function:
 
 * SLACK_BOT_TOKEN - Slack bot token
 * SLACK_APP_TOKEN - Slack app token
+* SLACK_ADMIN_USER_TOKEN - User token ( xoxp ) of a workspace admin or owner, with the `chat:write` user scope. Used only to delete non-fire posts from `#devops`, since a bot token can only delete the bot's own messages
 * BYWATER_BOT_DATA_URL - GitHub URL of the private `data.json` ( contact/duty map + secrets ) the bot loads and refreshes hourly
 * BYWATER_BOT_GITHUB_TOKEN - Token used to read `data.json`. Needs **contents: write** on that repo for the self-service `claim` / `set my sms` commands to commit updates back
 * QUOTES_CSV_URL - URL to a CSV of quotes
@@ -103,6 +105,7 @@ This project uses a number of environment variables to function:
 * TWILIO_PHONE - Outgoing Twilio phone number ( e.g. +11234567890 )
 * DEVOPS_ALERT_DM_USER - Who to nag about #devops-alerts failures ( defaults to the devops fire-duty default, "Kyle" )
 * DEVOPS_ALERT_NAG_MINUTES - Minutes between un-acknowledged DM reminders ( defaults to 15 )
+* DEVOPS_FIRE_GRACE_MINUTES - Minutes a new top-level `#devops` post has to get a :fire: reaction before it's removed ( defaults to 2 )
 
 The `ticket`/`zd` lookup talks to the Zoho Desk REST API using an OAuth2
 refresh token ( server-to-server ). Create a Self Client in the
@@ -143,7 +146,15 @@ how to set up the Slack tokens.
 * groups:history
 * im:history
 * mpim:history
+* reactions:read
 * users:read
+
+##### User Token Scopes
+
+These go on the token in `SLACK_ADMIN_USER_TOKEN`, so the app has to be
+installed by a workspace admin or owner.
+
+* chat:write
 
 ##### Google Scopes
 * calendar, read-only
