@@ -128,7 +128,9 @@ def register_support_handlers(app):
     # Resolve the #tickets channel id once so the weekend-duty test command can
     # restrict itself to that channel (fail closed if we can't find it)
     try:
-        tickets_channel_id = get_channel_id_by_name(app=app, channel_name="tickets")
+        tickets_channel_id = get_channel_id_by_name(
+            app=app, channel_name=config.get_setting("TICKETS_CHANNEL", "tickets")
+        )
         print(f"TICKETS CHANNEL ID: {tickets_channel_id}")
     except Exception as e:
         print(f"Error getting tickets channel ID: {e}")

@@ -52,7 +52,7 @@ def register_karma_handlers(app):
                 message = f"{user} {k1} {k2} {k3} {k4}"
                 print("Posting message:", message)
                 app.client.chat_postMessage(
-                    channel="#kudos",
+                    channel=f"#{config.get_setting('KUDOS_CHANNEL', 'kudos')}",
                     text=message,
                 )
             except Exception as e:

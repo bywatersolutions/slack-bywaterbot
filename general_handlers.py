@@ -123,7 +123,7 @@ def register_general_handlers(app):
             quote = get_quote(url=quotes_csv_url)
             try:
                 app.client.chat_postMessage(
-                    channel="#general",
+                    channel=f"#{config.get_setting('QUOTES_CHANNEL', 'general')}",
                     text=quote,
                 )
                 say(quote)

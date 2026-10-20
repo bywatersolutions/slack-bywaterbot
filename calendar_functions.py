@@ -16,6 +16,8 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
+import config
+
 
 def main():
     """Execute the main flow to find and print the weekend duty user.
@@ -32,9 +34,13 @@ def main():
 def get_weekday_duty(department):
 
     if department == "dev":
-        calendar_name = "Fire Duty - Developers"
+        calendar_name = config.get_setting(
+            "DEV_FIRE_DUTY_CALENDAR", "Fire Duty - Developers"
+        )
     elif department == "systems":
-        calendar_name = "Fire Duty - Systems"
+        calendar_name = config.get_setting(
+            "SYSTEMS_FIRE_DUTY_CALENDAR", "Fire Duty - Systems"
+        )
 
     """Retrieve the current weekday duty event from Google Calendar.
 
@@ -146,6 +152,10 @@ def get_weekend_duty():
         otherwise None.
     """
 
+    weekend_help_desk_calendar_name = config.get_setting(
+        "WEEKEND_HELP_DESK_CALENDAR", "Weekend Help Desk"
+    )
+
     try:
         creds = get_google_creds()
         service = build("calendar", "v3", credentials=creds)
@@ -155,7 +165,7 @@ def get_weekend_duty():
         while True:
             calendar_list = service.calendarList().list(pageToken=page_token).execute()
             for calendar_list_entry in calendar_list["items"]:
-                if calendar_list_entry["summary"] == "Weekend Help Desk":
+                if calendar_list_entry["summary"] == weekend_help_desk_calendar_name:
                     weekend_help_desk_calendar_id = calendar_list_entry["id"]
             page_token = calendar_list.get("nextPageToken")
             if not page_token:

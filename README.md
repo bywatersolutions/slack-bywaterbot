@@ -96,6 +96,23 @@ has a header row in row 1.
 
 * `users` - One row per person: `name` ( as it appears on the duty calendars ), `sms` ( e.g. `+12025550123`; keep this column formatted as plain text ) and `slack_id` ( filled in by `claim` ). The `claim` and `set my sms` commands write to this tab.
 * `partners` - One row per partner: `product` ( `innreach` or `rapido` ) and `partner`. The `innreach partners` and `rapido partners` commands list these.
+* `settings` - One row per setting: `key`, `value` and `notes`. A blank value uses the environment variable of the same name, then the default below. Settings marked "restart" are read once at startup; the rest apply on the next refresh.
+  * `DEVOPS_CHANNEL` - The fires-only channel the bot watches for :fire: reactions ( default `devops`, restart )
+  * `DEVOPS_ALERTS_CHANNEL` - Channel watched for failure alerts ( default `devops-alerts`, restart )
+  * `TICKETS_CHANNEL` - Channel for `test weekend duty` ( default `tickets`, restart )
+  * `KUDOS_CHANNEL` - Where karma posts go ( default `kudos` )
+  * `QUOTES_CHANNEL` - Where `Quote Please` posts ( default `general` )
+  * `DEV_FIRE_DUTY_CALENDAR` - Google Calendar for developer fire duty ( default `Fire Duty - Developers` )
+  * `SYSTEMS_FIRE_DUTY_CALENDAR` - Google Calendar for systems fire duty ( default `Fire Duty - Systems` )
+  * `WEEKEND_HELP_DESK_CALENDAR` - Google Calendar for weekend duty ( default `Weekend Help Desk` )
+  * `DEFAULT_DEVOPS_ASSIGNEE` - Who gets texted about a #devops fire when the person in the channel topic isn't in `users` ( default `Kyle` )
+  * `DEVOPS_ALERT_DM_USER` - Who to nag about #devops-alerts failures ( defaults to `DEFAULT_DEVOPS_ASSIGNEE` )
+  * `DEVOPS_ALERT_NAG_MINUTES` - Minutes between un-acknowledged DM reminders ( default `15` )
+  * `DEVOPS_FIRE_GRACE_MINUTES` - Minutes a new top-level `#devops` post has to get a :fire: reaction before it's removed ( default `1` )
+  * `TWILIO_PHONE` - Outgoing Twilio phone number, e.g. `+11234567890` ( restart )
+  * `ZOHO_DESK_ORG_ID` - Zoho Desk organization id ( ByWater is `868351381`; from `GET /api/v1/organizations` )
+  * `ZOHO_ACCOUNTS_URL` - Zoho accounts base URL ( default `https://accounts.zoho.com`; change for non-US data centers )
+  * `ZOHO_DESK_URL` - Zoho Desk API base URL ( default `https://desk.zoho.com` )
 
 The bot reads and writes the sheet as a Google service account:
 
@@ -125,27 +142,21 @@ This project uses a number of environment variables to function:
 * TOKEN_JSON - Run `python calendar_functions.py` on the server, input given URL in lynx, copy contents of token.json into this variable
 * TWILIO_ACCOUNT_SID - SID for the Twilio account to be used ( provided by Twilio )
 * TWILIO_AUTH_TOKEN - Authentication token for the Twilio account ot be used ( provided by Twilio )
-* TWILIO_PHONE - Outgoing Twilio phone number ( e.g. +11234567890 )
-* DEVOPS_ALERT_DM_USER - Who to nag about #devops-alerts failures ( defaults to the devops fire-duty default, "Kyle" )
-* DEVOPS_ALERT_NAG_MINUTES - Minutes between un-acknowledged DM reminders ( defaults to 15 )
-* DEVOPS_FIRE_GRACE_MINUTES - Minutes a new top-level `#devops` post has to get a :fire: reaction before it's removed ( defaults to 1 )
 
 The `ticket`/`zd` lookup talks to the Zoho Desk REST API using an OAuth2
 refresh token ( server-to-server ). Create a Self Client in the
 [Zoho API Console](https://api-console.zoho.com/), generate a grant code with
 the scope `Desk.tickets.READ,Desk.search.READ` ( both are required — the search
 endpoint used for ZD-number lookups needs `Desk.search.READ` ), then exchange it
-for a refresh token once and set the variables below.
+for a refresh token once and set the variables below. The org id and URLs
+are [settings](#configuration-sheet) in the sheet.
 
 The exchange is scripted — run `python zoho_functions.py` and paste the grant
 code when prompted; it prints the `ZOHO_REFRESH_TOKEN` to set.
 
-* ZOHO_DESK_ORG_ID - Zoho Desk organization id ( ByWater is `868351381`; from `GET /api/v1/organizations` )
 * ZOHO_CLIENT_ID - OAuth client id from the Self Client
 * ZOHO_CLIENT_SECRET - OAuth client secret from the Self Client
 * ZOHO_REFRESH_TOKEN - Long-lived refresh token from the one-time code exchange
-* ZOHO_ACCOUNTS_URL - Accounts base URL ( optional, defaults to `https://accounts.zoho.com`; change for non-US data centers )
-* ZOHO_DESK_URL - Desk API base URL ( optional, defaults to `https://desk.zoho.com` )
 
 Check out https://slack.dev/bolt-python/tutorial/getting-started to see
 how to set up the Slack tokens.

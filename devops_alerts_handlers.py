@@ -9,15 +9,13 @@ and keeps re-sending that DM on a timer until the button is clicked.
 Successes posted to #devops-alerts are left alone; only failures start a nag.
 """
 
-import os
 import threading
 import time
 
 import config
 from bot_functions import get_channel_id_by_name, get_name_to_id_mapping
 
-# How long to wait between nags, and the action_id the Acknowledge button fires.
-NAG_INTERVAL_SECONDS = int(os.environ.get("DEVOPS_ALERT_NAG_MINUTES", "15")) * 60
+# The action_id the Acknowledge button fires.
 ACK_ACTION_ID = "ack_devops_alert"
 
 # Open, unacknowledged incidents keyed by a generated id. Guarded by _lock since
@@ -109,7 +107,10 @@ def _send_dm(app, incident_id, repeat=False):
         inc = _incidents.get(incident_id)
         if inc:
             inc["nag_count"] += 1
-            inc["next_nag"] = time.time() + NAG_INTERVAL_SECONDS
+            inc["next_nag"] = (
+                time.time()
+                + int(config.get_setting("DEVOPS_ALERT_NAG_MINUTES", "15")) * 60
+            )
 
 
 def _nag_loop(app):
@@ -130,17 +131,13 @@ def register_devops_alerts_handlers(app):
 
     try:
         alerts_channel_id = get_channel_id_by_name(
-            app=app, channel_name="devops-alerts"
+            app=app,
+            channel_name=config.get_setting("DEVOPS_ALERTS_CHANNEL", "devops-alerts"),
         )
         print(f"DEVOPS-ALERTS CHANNEL ID: {alerts_channel_id}")
     except Exception as e:
         print(f"Error getting devops-alerts channel ID: {e}")
         alerts_channel_id = None
-
-    # Who gets nagged. Defaults to the same person as devops fire duty.
-    dm_user_name = os.environ.get(
-        "DEVOPS_ALERT_DM_USER", config.DEFAULT_DEVOPS_ASSIGNEE
-    )
 
     # Our own user id, so we never react to messages we posted ourselves.
     try:
@@ -149,7 +146,7 @@ def register_devops_alerts_handlers(app):
         print(f"Error getting bot user id: {e}")
         bot_user_id = None
 
-    def resolve_dm_user_id():
+    def resolve_dm_user_id(dm_user_name):
         try:
             name_to_id, _ = get_name_to_id_mapping(app)
             return name_to_id.get(dm_user_name.lower())
@@ -193,7 +190,14 @@ def register_devops_alerts_handlers(app):
                     print("Duplicate devops-alert failure; not starting a second nag.")
                     return
 
-        user_id = resolve_dm_user_id()
+        # Who gets nagged. Defaults to the same person as devops fire duty.
+        dm_user_name = config.get_setting(
+            "DEVOPS_ALERT_DM_USER",
+            config.get_setting(
+                "DEFAULT_DEVOPS_ASSIGNEE", config.DEFAULT_DEVOPS_ASSIGNEE
+            ),
+        )
+        user_id = resolve_dm_user_id(dm_user_name)
         if not user_id:
             print(f"Can't DM '{dm_user_name}' — user id not found.")
             return

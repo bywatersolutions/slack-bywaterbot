@@ -9,6 +9,7 @@ from datetime import datetime
 from twilio.rest import Client
 from bot_functions import load_bywaterbot_data
 
+# Used when the sheet and the environment don't set DEFAULT_DEVOPS_ASSIGNEE
 DEFAULT_DEVOPS_ASSIGNEE = "Kyle"
 
 # Global data store
@@ -46,12 +47,22 @@ def load_config():
     try:
         account_sid = os.environ.get("TWILIO_ACCOUNT_SID")
         auth_token = os.environ.get("TWILIO_AUTH_TOKEN")
-        twilio_phone = os.environ.get("TWILIO_PHONE")
+        twilio_phone = get_setting("TWILIO_PHONE")
         if account_sid and auth_token:
             twilio_client = Client(account_sid, auth_token)
             print("Twilio client initialized")
     except Exception as e:
         print(f"Error initializing Twilio client: {e}")
+
+
+def get_setting(key, default=None):
+    """Return a value from the sheet's 'settings' tab.
+
+    Falls back to the environment variable of the same name, then to default.
+    """
+    return (
+        bywaterbot_data.get("settings", {}).get(key) or os.environ.get(key) or default
+    )
 
 
 def refresh_data():

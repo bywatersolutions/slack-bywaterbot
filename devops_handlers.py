@@ -17,17 +17,15 @@ from calendar_functions import get_weekday_duty, get_user
 from bot_functions import get_devops_fire_duty_asignee, get_channel_id_by_name
 from message_matchers import is_not_bot_message
 
-# How long a new top-level #devops post has to get a fire reaction before it's removed.
-FIRE_GRACE_MINUTES = int(os.environ.get("DEVOPS_FIRE_GRACE_MINUTES", "1"))
-
-
 def register_devops_handlers(app):
 
     # We need to get the channel ID on startup or when needed
     # Since app is passed in, we can get it here, but it might be better to get it lazily
     # For now, let's look it up when registering
     try:
-        devops_channel_id = get_channel_id_by_name(app=app, channel_name="devops")
+        devops_channel_id = get_channel_id_by_name(
+            app=app, channel_name=config.get_setting("DEVOPS_CHANNEL", "devops")
+        )
         print(f"DEVOPS CHANNEL ID: {devops_channel_id}")
     except Exception as e:
         print(f"Error getting devops channel ID: {e}")
@@ -150,7 +148,9 @@ def register_devops_handlers(app):
                         body_text = (
                             f"There is a fire in #devops assigned to {assignee}: {text}"
                         )
-                        assignee = config.DEFAULT_DEVOPS_ASSIGNEE
+                        assignee = config.get_setting(
+                            "DEFAULT_DEVOPS_ASSIGNEE", config.DEFAULT_DEVOPS_ASSIGNEE
+                        )
                     else:  # User cannot be contacted
                         body_text = f"There is a fire in #devops: {text}"
 
@@ -275,6 +275,9 @@ def register_devops_handlers(app):
         user = message.get("user")
         text = message.get("text", "")
 
+        # How long a new top-level #devops post has to get a fire reaction before it's removed
+        fire_grace_minutes = int(config.get_setting("DEVOPS_FIRE_GRACE_MINUTES", "1"))
+
         warning_ts = None
         try:
             response = app.client.chat_postMessage(
@@ -282,8 +285,8 @@ def register_devops_handlers(app):
                 thread_ts=message_ts,
                 text=(
                     f":fire: <#{channel_id}> is for fires only. React to your message "
-                    f"with :fire: within {FIRE_GRACE_MINUTES} "
-                    f"minute{'' if FIRE_GRACE_MINUTES == 1 else 's'} or I'll remove it. "
+                    f"with :fire: within {fire_grace_minutes} "
+                    f"minute{'' if fire_grace_minutes == 1 else 's'} or I'll remove it. "
                     "Discussion belongs in the thread of a fire post."
                 ),
             )
@@ -292,7 +295,7 @@ def register_devops_handlers(app):
             print(f"Error sending #devops fires-only warning: {e}")
 
         timer = threading.Timer(
-            FIRE_GRACE_MINUTES * 60,
+            fire_grace_minutes * 60,
             remove_if_not_fire,
             args=(channel_id, message_ts, user, text, warning_ts),
         )

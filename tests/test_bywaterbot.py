@@ -127,6 +127,13 @@ class TestGetDataFromSheet:
                             ["rapido", "akronlibrary"],
                         ]
                     },
+                    {
+                        "values": [
+                            ["key", "value", "notes"],
+                            ["DEVOPS_CHANNEL", " devops ", "restart needed"],
+                            ["TWILIO_PHONE", ""],
+                        ]
+                    },
                 ]
             }
         )
@@ -143,6 +150,7 @@ class TestGetDataFromSheet:
                 "innreach": ["bhpl"],
                 "rapido": ["westlake", "akronlibrary"],
             },
+            "settings": {"DEVOPS_CHANNEL": "devops"},
         }
         called_url = mock_session.return_value.get.call_args[0][0]
         assert called_url.endswith("/sheet123/values:batchGet")
@@ -374,6 +382,30 @@ class TestGetUser:
 # ---------------------------------------------------------------------------
 # config tests
 # ---------------------------------------------------------------------------
+
+
+class TestGetSetting:
+    @patch.dict(os.environ, {"DEVOPS_CHANNEL": "from-env"}, clear=True)
+    def test_sheet_wins(self):
+        import config
+
+        config.bywaterbot_data = {"settings": {"DEVOPS_CHANNEL": "from-sheet"}}
+        assert config.get_setting("DEVOPS_CHANNEL", "default") == "from-sheet"
+
+    @patch.dict(os.environ, {"DEVOPS_CHANNEL": "from-env"}, clear=True)
+    def test_env_fallback(self):
+        import config
+
+        config.bywaterbot_data = {"settings": {}}
+        assert config.get_setting("DEVOPS_CHANNEL", "default") == "from-env"
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_default(self):
+        import config
+
+        config.bywaterbot_data = {}
+        assert config.get_setting("DEVOPS_CHANNEL", "default") == "default"
+        assert config.get_setting("DEVOPS_CHANNEL") is None
 
 
 class TestRefreshData:
@@ -704,7 +736,7 @@ class TestDevopsHandlers:
         assert warning["channel"] == "CDEVOPS"
         assert warning["thread_ts"] == "1.1"
         assert "fires only" in warning["text"]
-        assert mock_timer.call_args.args[0] == devops_handlers.FIRE_GRACE_MINUTES * 60
+        assert mock_timer.call_args.args[0] == 1 * 60
         mock_timer.return_value.start.assert_called_once()
 
     @patch.dict(os.environ, {"SLACK_ADMIN_USER_TOKEN": "xoxp-test"})

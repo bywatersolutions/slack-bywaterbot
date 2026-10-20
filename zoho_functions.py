@@ -10,20 +10,22 @@ import os
 import time
 import requests
 
+from config import get_setting
+
 # Cache the access token so we don't request a new one on every lookup
 _access_token = None
 _access_token_expiry = 0
 
 
 def _zoho_config():
-    """Return the Zoho OAuth/Desk settings from the environment.
+    """Return the Zoho OAuth/Desk settings from the environment and the sheet.
 
     Returns a dict, or None if the required credentials aren't all present.
     """
     client_id = os.environ.get("ZOHO_CLIENT_ID")
     client_secret = os.environ.get("ZOHO_CLIENT_SECRET")
     refresh_token = os.environ.get("ZOHO_REFRESH_TOKEN")
-    org_id = os.environ.get("ZOHO_DESK_ORG_ID")
+    org_id = get_setting("ZOHO_DESK_ORG_ID")
     if not (client_id and client_secret and refresh_token and org_id):
         return None
     return {
@@ -32,10 +34,8 @@ def _zoho_config():
         "refresh_token": refresh_token,
         "org_id": org_id,
         # Default to the US data center; override for EU/IN/AU/etc.
-        "accounts_url": os.environ.get(
-            "ZOHO_ACCOUNTS_URL", "https://accounts.zoho.com"
-        ),
-        "desk_url": os.environ.get("ZOHO_DESK_URL", "https://desk.zoho.com"),
+        "accounts_url": get_setting("ZOHO_ACCOUNTS_URL", "https://accounts.zoho.com"),
+        "desk_url": get_setting("ZOHO_DESK_URL", "https://desk.zoho.com"),
     }
 
 
