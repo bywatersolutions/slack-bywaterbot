@@ -9,22 +9,10 @@ Contains message handlers for:
 
 import re
 import random
-import os
 from twilio.rest import Client
 import config
-from bot_functions import get_name_to_id_mapping, get_karma_pep_talks, get_putdowns
+from bot_functions import get_name_to_id_mapping
 from message_matchers import is_direct_message, is_not_bot_message
-
-# Load karma pep talks from csv
-karma_csv_url = os.environ.get("KARMA_CSV_URL")
-karma1, karma2, karma3, karma4 = [], [], [], []
-if karma_csv_url:
-    try:
-        karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=karma_csv_url)
-    except Exception as e:
-        print(f"Error loading karma talks: {e}")
-
-putdowns = get_putdowns()
 
 
 def register_karma_handlers(app):
@@ -44,6 +32,9 @@ def register_karma_handlers(app):
         if is_user:
             try:
                 print("Giving karma to", user)
+                karma1, karma2, karma3, karma4 = config.bywaterbot_data.get(
+                    "karma", [[], [], [], []]
+                )
                 k1 = random.choice(karma1) if karma1 else "You rock!"
                 k2 = random.choice(karma2) if karma2 else ""
                 k3 = random.choice(karma3) if karma3 else ""
@@ -95,20 +86,15 @@ def register_karma_handlers(app):
         if is_user:
             say(text=f"If you can't say something nice, don't say anything at all.")
         else:
+            putdowns = config.bywaterbot_data.get("putdowns", [])
             p = random.choice(putdowns) if putdowns else "is not great."
             say(text=f"{user}, {p}")
 
     @app.message("Refresh Karma", matchers=[is_direct_message])
     def refresh_karma(message, say):
-        """Refresh the cached karma pep talks ( DM-only )."""
-        global karma1, karma2, karma3, karma4
+        """Refresh the karma pep talks, which live with the rest of bywaterbot data ( DM-only )."""
         say(f"Sure thing!!")
-        try:
-            url = os.environ.get("KARMA_CSV_URL")
-            if url:
-                karma1, karma2, karma3, karma4 = get_karma_pep_talks(url=url)
-                say(f"Done!")
-            else:
-                say("No KARMA_CSV_URL configured.")
-        except Exception as e:
-            say(f"Error refreshing karma: {e}")
+        if config.refresh_data():
+            say(f"Done!")
+        else:
+            say("Failed to refresh bywaterbot data.")

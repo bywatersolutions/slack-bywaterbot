@@ -5,12 +5,10 @@ Provides utility functions for the ByWater Slack bot, including channel lookup,
 user mapping, data retrieval, and message handling.
 """
 
-import csv
 import json
 import os
 import random
 import re
-import urllib.request
 from google.auth.transport.requests import AuthorizedSession
 from google.oauth2 import service_account
 
@@ -104,11 +102,27 @@ def get_data_from_sheet(sheet_id):
     try:
         response = _sheet_session().get(
             f"{SHEETS_API_URL}/{sheet_id}/values:batchGet",
-            params={"ranges": ["users", "partners", "settings"]},
+            params={
+                "ranges": [
+                    "users",
+                    "partners",
+                    "settings",
+                    "karma",
+                    "quotes",
+                    "putdowns",
+                ]
+            },
             timeout=10,
         )
         response.raise_for_status()
-        users_tab, partners_tab, settings_tab = response.json()["valueRanges"]
+        (
+            users_tab,
+            partners_tab,
+            settings_tab,
+            karma_tab,
+            quotes_tab,
+            putdowns_tab,
+        ) = response.json()["valueRanges"]
 
         users, _ = _sheet_users(users_tab.get("values", []))
 
@@ -126,7 +140,31 @@ def get_data_from_sheet(sheet_id):
             if key.strip() and value.strip():
                 settings[key.strip()] = value.strip()
 
-        return {"users": users, "partners": partners, "settings": settings}
+        # Four columns of haiku lines and an attribution; a kudos message picks
+        # one from each. Cells keep their trailing newlines, which break the lines.
+        karma = [[], [], [], []]
+        for row in karma_tab.get("values", [])[1:]:
+            for column, cell in enumerate(row[:4]):
+                if cell.strip():
+                    karma[column].append(cell)
+
+        quotes = [
+            row[0] for row in quotes_tab.get("values", [])[1:] if row and row[0].strip()
+        ]
+        putdowns = [
+            row[0]
+            for row in putdowns_tab.get("values", [])[1:]
+            if row and row[0].strip()
+        ]
+
+        return {
+            "users": users,
+            "partners": partners,
+            "settings": settings,
+            "karma": karma,
+            "quotes": quotes,
+            "putdowns": putdowns,
+        }
     except Exception as e:
         print(f"Error fetching data from Google Sheet {sheet_id}: {e}")
         return None
@@ -312,56 +350,17 @@ def get_name_to_id_mapping(app):
     return name_to_id, name_to_info
 
 
-def get_karma_pep_talks(url):
-    """Download and parse the karma pep talks CSV.
-
-    Args:
-        url: URL to the CSV file.
-
-    Returns:
-        Four lists containing the different talk lines.
-    """
-    urllib.request.urlretrieve(url, "karma.csv")
-
-    karma1, karma2, karma3, karma4 = [], [], [], []
-
-    with open("karma.csv") as csvfile:
-        reader = csv.reader(csvfile, delimiter=",", quotechar='"')
-
-        for row in reader:
-            if len(row[0]):
-                karma1.append(row[0])
-            if len(row[1]):
-                karma2.append(row[1])
-            if len(row[2]):
-                karma3.append(row[2])
-            if len(row[3]):
-                karma4.append(row[3])
-
-    return karma1, karma2, karma3, karma4
-
-
-def get_quote(url):
-    """Download a CSV of quotes and return a random entry.
+def get_quote(quotes):
+    """Return a random quote from the list of quotes.
 
     The function also normalises certain prefixes for nicer output.
 
     Args:
-        url: URL to the quotes CSV.
+        quotes: The quotes from the sheet's 'quotes' tab.
 
     Returns:
         A single quote string.
     """
-    urllib.request.urlretrieve(url, "quotes.csv")
-
-    quotes = []
-
-    with open("quotes.csv") as csvfile:
-        reader = csv.reader(csvfile, delimiter=",", quotechar='"')
-        for row in reader:
-            if len(row[0]):
-                quotes.append(row[0])
-
     quote = random.choice(quotes)
 
     if quote.startswith("PQ: "):
@@ -380,25 +379,3 @@ def get_quote(url):
         )
 
     return quote
-
-
-def get_putdowns():
-    """Return a static list of humorous put‑downs used by the bot.
-
-    Returns:
-        List of strings.
-    """
-    putdowns = [
-        "you’re a gray sprinkle on a rainbow cupcake.",
-        "you are more disappointing than an unsalted pretzel.",
-        "I’ll never forget the first time we met. But I’ll keep trying.",
-        "It’s impossible to underestimate you.",
-        "I thought of you today. It reminded me to take out the trash.",
-        "you are like a cloud. When you disappear, it’s a beautiful day.",
-        "you have miles to go before you reach mediocre.",
-        "I was today years old when I realized I didn’t like you.",
-        "the jerk store called. They’re running out of you.",
-        "life is full of disappointments, and I just added you to the list.",
-        "I treasure the time I don’t spend with you.",
-    ]
-    return putdowns

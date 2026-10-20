@@ -60,7 +60,7 @@ the hourly refresh.
 #### Admin (DM only)
 
 * `Refresh Data` — Reload contact/duty data from its source.
-* `Refresh Karma` — Reload the karma pep-talk messages.
+* `Refresh Karma` — Reload the karma pep-talk messages ( the same as `Refresh Data` ).
 * `help` — Show this capability reference (any casing).
 
 #### Automatic behaviors (no command needed)
@@ -113,6 +113,9 @@ has a header row in row 1.
   * `ZOHO_DESK_ORG_ID` - Zoho Desk organization id ( ByWater is `868351381`; from `GET /api/v1/organizations` )
   * `ZOHO_ACCOUNTS_URL` - Zoho accounts base URL ( default `https://accounts.zoho.com`; change for non-US data centers )
   * `ZOHO_DESK_URL` - Zoho Desk API base URL ( default `https://desk.zoho.com` )
+* `karma` - Four columns: `line1`, `line2`, `line3` and `attribution`. A kudos message picks one cell from each column to build a haiku, so end each line cell with a line break.
+* `quotes` - One quote per row in column A, for `Quote Please`. Prefix a quote with `PQ: `, `HAHA: `, `MOVE: `, `FACT: ` or `Koha sys pref: ` to change how it's introduced.
+* `putdowns` - One putdown per row in column A, for `name--` aimed at something that isn't a person.
 
 The bot reads and writes the sheet as a Google service account:
 
@@ -136,8 +139,6 @@ This project uses a number of environment variables to function:
 * SLACK_ADMIN_USER_TOKEN - User token ( xoxp ) of a workspace admin or owner, with the `chat:write` user scope. Used only to delete non-fire posts from `#devops`, since a bot token can only delete the bot's own messages
 * BYWATER_BOT_SHEET_ID - Id of the [configuration sheet](#configuration-sheet)
 * GOOGLE_SERVICE_ACCOUNT_JSON - Contents of the JSON key for the service account the configuration sheet is shared with
-* QUOTES_CSV_URL - URL to a CSV of quotes
-* KARMA_CSV_URL - URL to a CSV of karma comment possibilities
 * CREDENTIALS_JSON - Download crendentials.json from Google, put contents in this variable
 * TOKEN_JSON - Run `python calendar_functions.py` on the server, input given URL in lynx, copy contents of token.json into this variable
 * TWILIO_ACCOUNT_SID - SID for the Twilio account to be used ( provided by Twilio )

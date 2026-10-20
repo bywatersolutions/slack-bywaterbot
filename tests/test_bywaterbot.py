@@ -12,87 +12,35 @@ import pytest
 # ---------------------------------------------------------------------------
 
 from bot_functions import (
-    get_putdowns,
     get_quote,
     get_data_from_sheet,
     get_devops_fire_duty_asignee,
     get_channel_id_by_name,
     get_name_to_id_mapping,
-    get_karma_pep_talks,
     load_bywaterbot_data,
 )
 
 
-class TestGetPutdowns:
-    def test_returns_list(self):
-        result = get_putdowns()
-        assert isinstance(result, list)
-
-    def test_non_empty(self):
-        assert len(get_putdowns()) > 0
-
-    def test_all_strings(self):
-        for p in get_putdowns():
-            assert isinstance(p, str)
-
-
 class TestGetQuote:
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_prefix_replacement_pq(self, mock_retrieve):
-        csv_content = "PQ: Some partner quote\n"
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch(
-                "bot_functions.random.choice", return_value="PQ: Some partner quote"
-            ):
-                result = get_quote("http://example.com/quotes.csv")
+    def test_prefix_replacement_pq(self):
+        result = get_quote(["PQ: Some partner quote"])
         assert result.startswith("Partner Quote: ")
         assert "PQ: " not in result
 
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_prefix_replacement_haha(self, mock_retrieve):
-        csv_content = "HAHA: Funny thing\n"
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch("bot_functions.random.choice", return_value="HAHA: Funny thing"):
-                result = get_quote("http://example.com/quotes.csv")
-        assert result == "Funny thing"
+    def test_prefix_replacement_haha(self):
+        assert get_quote(["HAHA: Funny thing"]) == "Funny thing"
 
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_prefix_replacement_move(self, mock_retrieve):
-        csv_content = "MOVE: Take a walk\n"
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch("bot_functions.random.choice", return_value="MOVE: Take a walk"):
-                result = get_quote("http://example.com/quotes.csv")
-        assert result == "Get up and move! Take a walk"
+    def test_prefix_replacement_move(self):
+        assert get_quote(["MOVE: Take a walk"]) == "Get up and move! Take a walk"
 
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_prefix_replacement_fact(self, mock_retrieve):
-        csv_content = "FACT: The sky is blue\n"
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch(
-                "bot_functions.random.choice", return_value="FACT: The sky is blue"
-            ):
-                result = get_quote("http://example.com/quotes.csv")
-        assert result == "Fun Fact! The sky is blue"
+    def test_prefix_replacement_fact(self):
+        assert get_quote(["FACT: The sky is blue"]) == "Fun Fact! The sky is blue"
 
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_prefix_replacement_koha(self, mock_retrieve):
-        csv_content = "Koha sys pref: SomePref\n"
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch(
-                "bot_functions.random.choice", return_value="Koha sys pref: SomePref"
-            ):
-                result = get_quote("http://example.com/quotes.csv")
-        assert "Koha SysPref Quiz!" in result
+    def test_prefix_replacement_koha(self):
+        assert "Koha SysPref Quiz!" in get_quote(["Koha sys pref: SomePref"])
 
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_no_prefix(self, mock_retrieve):
-        csv_content = "Just a normal quote\n"
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            with patch(
-                "bot_functions.random.choice", return_value="Just a normal quote"
-            ):
-                result = get_quote("http://example.com/quotes.csv")
-        assert result == "Just a normal quote"
+    def test_no_prefix(self):
+        assert get_quote(["Just a normal quote"]) == "Just a normal quote"
 
 
 def _sheet_response(payload):
@@ -134,6 +82,15 @@ class TestGetDataFromSheet:
                             ["TWILIO_PHONE", ""],
                         ]
                     },
+                    {
+                        "values": [
+                            ["line1", "line2", "line3", "attribution"],
+                            ["ByWater applauds\n", "", "A second nature\n", "- Basho"],
+                            ["Heroic support\n", "Power to librarians\n"],
+                        ]
+                    },
+                    {"values": [["quote"], ["PQ: you rock"], [], ["  "], ["FACT: hi"]]},
+                    {"values": [["putdown"], ["you are mid."]]},
                 ]
             }
         )
@@ -151,6 +108,14 @@ class TestGetDataFromSheet:
                 "rapido": ["westlake", "akronlibrary"],
             },
             "settings": {"DEVOPS_CHANNEL": "devops"},
+            "karma": [
+                ["ByWater applauds\n", "Heroic support\n"],
+                ["Power to librarians\n"],
+                ["A second nature\n"],
+                ["- Basho"],
+            ],
+            "quotes": ["PQ: you rock", "FACT: hi"],
+            "putdowns": ["you are mid."],
         }
         called_url = mock_session.return_value.get.call_args[0][0]
         assert called_url.endswith("/sheet123/values:batchGet")
@@ -275,28 +240,6 @@ class TestGetNameToIdMapping:
         _, name_to_info = get_name_to_id_mapping(app)
         assert "My Bot" not in name_to_info
         assert "Kyle" in name_to_info
-
-
-class TestGetKarmaPepTalks:
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_parses_csv(self, mock_retrieve):
-        csv_content = '"a1","b1","c1","d1"\n"a2","b2","c2","d2"\n'
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            k1, k2, k3, k4 = get_karma_pep_talks("http://example.com/karma.csv")
-        assert k1 == ["a1", "a2"]
-        assert k2 == ["b1", "b2"]
-        assert k3 == ["c1", "c2"]
-        assert k4 == ["d1", "d2"]
-
-    @patch("bot_functions.urllib.request.urlretrieve")
-    def test_skips_empty_cells(self, mock_retrieve):
-        csv_content = '"a1","","c1",""\n"","b2","","d2"\n'
-        with patch("builtins.open", mock_open(read_data=csv_content)):
-            k1, k2, k3, k4 = get_karma_pep_talks("http://example.com/karma.csv")
-        assert k1 == ["a1"]
-        assert k2 == ["b2"]
-        assert k3 == ["c1"]
-        assert k4 == ["d2"]
 
 
 class TestLoadBywaterbotData:
@@ -524,6 +467,33 @@ class TestGeneralHandlers:
         say.assert_called_once()
         assert "success" in say.call_args[0][0].lower()
 
+    @patch.dict(os.environ, {}, clear=True)
+    def test_quote_please_posts_sheet_quote(self):
+        import config
+
+        config.bywaterbot_data = {"quotes": ["FACT: The sky is blue"]}
+        app, handlers = self._register()
+        say = MagicMock()
+
+        handlers["Quote Please"]({}, say)
+
+        kwargs = app.client.chat_postMessage.call_args.kwargs
+        assert kwargs["channel"] == "#general"
+        assert kwargs["text"] == "Fun Fact! The sky is blue"
+        say.assert_called_once_with("Fun Fact! The sky is blue")
+
+    def test_quote_please_without_quotes(self):
+        import config
+
+        config.bywaterbot_data = {}
+        app, handlers = self._register()
+        say = MagicMock()
+
+        handlers["Quote Please"]({}, say)
+
+        app.client.chat_postMessage.assert_not_called()
+        say.assert_called_once_with("No quotes configured.")
+
 
 # ---------------------------------------------------------------------------
 # karma_handlers tests
@@ -591,6 +561,42 @@ class TestKarmaHandlers:
         handler(say, context)
         say.assert_called_once()
         assert "mondays" in say.call_args[1]["text"]
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_negative_karma_uses_sheet_putdowns(self):
+        import config
+
+        config.bywaterbot_data = {"putdowns": ["you are mid."]}
+        app, handlers = self._register()
+        app.client.users_list.return_value = {"members": []}
+
+        say = MagicMock()
+        handlers[r"^(\w+)(\-\-)"](say, {"matches": ("mondays", "--")})
+        assert say.call_args[1]["text"] == "mondays, you are mid."
+
+    @patch.dict(os.environ, {}, clear=True)
+    def test_karma_posts_sheet_haiku_to_kudos(self):
+        import config
+
+        config.bywaterbot_data = {
+            "karma": [["Line one\n"], ["Line two\n"], ["Line three\n"], ["- Basho"]]
+        }
+        app, handlers = self._register()
+        app.client.users_list.return_value = {"members": []}
+
+        handlers[r"(\S*)(\s?\+\+\s?)(.*)?"](MagicMock(), {"matches": ("<@U001>",)})
+
+        kwargs = app.client.chat_postMessage.call_args.kwargs
+        assert kwargs["channel"] == "#kudos"
+        assert kwargs["text"] == "<@U001> Line one\n Line two\n Line three\n - Basho"
+
+    @patch("config.refresh_data", return_value=True)
+    def test_refresh_karma_refreshes_data(self, mock_refresh):
+        app, handlers = self._register()
+        say = MagicMock()
+        handlers["Refresh Karma"]({}, say)
+        mock_refresh.assert_called_once()
+        assert say.call_args[0][0] == "Done!"
 
 
 # ---------------------------------------------------------------------------

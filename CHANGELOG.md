@@ -29,12 +29,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and the Zoho Desk org id are now set in the sheet's `settings` tab. The
   matching environment variables still work when the sheet leaves a
   setting blank.
+- The karma pep talks, quotes and putdowns now come from the sheet's
+  `karma`, `quotes` and `putdowns` tabs and refresh with the rest of the
+  data, so `Refresh Karma` now does the same as `Refresh Data`.
 
 ### Removed
 
 - Loading configuration and secrets from the GitHub `data.json`
   ( `BYWATER_BOT_DATA_URL`, `BYWATER_BOT_GITHUB_TOKEN` ). The Slack, Twilio
   and Google credentials must now be set as environment variables.
+- `KARMA_CSV_URL` and `QUOTES_CSV_URL`; the published karma and quotes
+  sheets are replaced by tabs in the configuration sheet.
 
 ## [1.1.0] - 2026-09-29
 

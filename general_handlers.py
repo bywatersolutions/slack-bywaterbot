@@ -9,7 +9,6 @@ Contains message handlers for:
 - Quote requests
 """
 
-import os
 import re
 import config
 from bot_functions import get_name_to_id_mapping, get_quote
@@ -118,9 +117,9 @@ def register_general_handlers(app):
     @app.message("Quote Please", matchers=[is_not_bot_message])
     def handle_quote(message, say):
         """Post a random quote to #general and echo it."""
-        quotes_csv_url = os.environ.get("QUOTES_CSV_URL")
-        if quotes_csv_url:
-            quote = get_quote(url=quotes_csv_url)
+        quotes = config.bywaterbot_data.get("quotes")
+        if quotes:
+            quote = get_quote(quotes)
             try:
                 app.client.chat_postMessage(
                     channel=f"#{config.get_setting('QUOTES_CHANNEL', 'general')}",
@@ -130,7 +129,7 @@ def register_general_handlers(app):
             except Exception as e:
                 say(f"Error posting quote: {e}")
         else:
-            say("No QUOTES_CSV_URL configured.")
+            say("No quotes configured.")
 
     # Refresh bywaterbot data manually ( DM-only )
     @app.message("Refresh Data", matchers=[is_direct_message])
