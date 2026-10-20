@@ -16,6 +16,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Thread replies and bot posts are left alone. Deleting other people's posts
   needs a workspace admin's user token in the new `SLACK_ADMIN_USER_TOKEN`.
 
+### Changed
+
+- The contact list ( names, SMS numbers, Slack ids ) now lives in a private
+  Google Sheet instead of `data.json` in a private GitHub repo, and `claim` /
+  `set my sms` update the sheet. Set `BYWATER_BOT_SHEET_ID` and
+  `GOOGLE_SERVICE_ACCOUNT_JSON`; the README explains the setup.
+
+### Removed
+
+- Loading configuration and secrets from the GitHub `data.json`
+  ( `BYWATER_BOT_DATA_URL`, `BYWATER_BOT_GITHUB_TOKEN` ). The Slack, Twilio
+  and Google credentials must now be set as environment variables.
+
 ## [1.1.0] - 2026-09-29
 
 ### Fixed

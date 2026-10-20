@@ -48,9 +48,10 @@ noted, commands work in any channel the bot is in or in a direct message.
 
 #### Your contact info (DM only)
 
-Self-service editing of your own entry in `data.json`. You can only edit your
-own info — the bot matches you by your stored Slack id — and changes are
-committed back to the private data repo, so they survive the hourly refresh.
+Self-service editing of your own row in the [configuration sheet](#configuration-sheet)'s
+`users` tab. You can only edit your own info ( the bot matches you by your
+stored Slack id ), and changes are written back to the sheet, so they survive
+the hourly refresh.
 
 * `claim <name>` — Link your Slack account to your weekend/fire-duty calendar name so the bot can find you. _e.g._ `claim Laura O`
 * `set my sms <number>` — Set the mobile number the bot texts for your duty alerts. _e.g._ `set my sms +12025550123`
@@ -87,6 +88,27 @@ to the channel are ignored. The bot must be invited to `#devops-alerts`.
 pip install --no-cache-dir -r requirements.txt
 ```
 
+### Configuration sheet
+
+The bot's day-to-day configuration lives in a private Google Sheet. The bot
+reads it at startup, every hour, and when you DM it `Refresh Data`. Every tab
+has a header row in row 1.
+
+* `users` - One row per person: `name` ( as it appears on the duty calendars ), `sms` ( e.g. `+12025550123`; keep this column formatted as plain text ) and `slack_id` ( filled in by `claim` ). The `claim` and `set my sms` commands write to this tab.
+
+The bot reads and writes the sheet as a Google service account:
+
+1. Create a service account in a Google Cloud project that has the Google Sheets API enabled, and download a JSON key for it.
+2. Share the sheet with the service account's email address as an Editor.
+3. Set `BYWATER_BOT_SHEET_ID` to the id in the sheet's URL ( `docs.google.com/spreadsheets/d/<id>/edit` ) and `GOOGLE_SERVICE_ACCOUNT_JSON` to the contents of the key file.
+
+Secrets ( tokens, keys, passwords ) never go in the sheet. They're environment
+variables only.
+
+Without the sheet configured, the bot falls back to JSON in `BYWATER_BOT_DATA`,
+then to a local `data.json`. Both use the same shape as the data loaded from
+the sheet, which is handy for development.
+
 ### Environment variables
 
 This project uses a number of environment variables to function:
@@ -94,8 +116,8 @@ This project uses a number of environment variables to function:
 * SLACK_BOT_TOKEN - Slack bot token
 * SLACK_APP_TOKEN - Slack app token
 * SLACK_ADMIN_USER_TOKEN - User token ( xoxp ) of a workspace admin or owner, with the `chat:write` user scope. Used only to delete non-fire posts from `#devops`, since a bot token can only delete the bot's own messages
-* BYWATER_BOT_DATA_URL - GitHub URL of the private `data.json` ( contact/duty map + secrets ) the bot loads and refreshes hourly
-* BYWATER_BOT_GITHUB_TOKEN - Token used to read `data.json`. Needs **contents: write** on that repo for the self-service `claim` / `set my sms` commands to commit updates back
+* BYWATER_BOT_SHEET_ID - Id of the [configuration sheet](#configuration-sheet)
+* GOOGLE_SERVICE_ACCOUNT_JSON - Contents of the JSON key for the service account the configuration sheet is shared with
 * QUOTES_CSV_URL - URL to a CSV of quotes
 * KARMA_CSV_URL - URL to a CSV of karma comment possibilities
 * CREDENTIALS_JSON - Download crendentials.json from Google, put contents in this variable

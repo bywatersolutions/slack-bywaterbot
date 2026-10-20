@@ -5,33 +5,32 @@ Provides utility functions for the ByWater Slack bot, including channel lookup,
 user mapping, data retrieval, and message handling.
 """
 
-import base64
 import csv
 import json
 import os
 import random
 import re
 import urllib.request
-import requests
+from google.auth.transport.requests import AuthorizedSession
+from google.oauth2 import service_account
+
+SHEETS_API_URL = "https://sheets.googleapis.com/v4/spreadsheets"
 
 
 def load_bywaterbot_data():
-    """Load bywaterbot_data from URL, environment variable, or local file."""
+    """Load bywaterbot_data from the Google Sheet, environment variable, or local file."""
     data = None
     source = ""
 
-    # Try to load from URL first
-    if os.environ.get("BYWATER_BOT_DATA_URL") and os.environ.get(
-        "BYWATER_BOT_GITHUB_TOKEN"
+    # Try to load from the Google Sheet first
+    if os.environ.get("BYWATER_BOT_SHEET_ID") and os.environ.get(
+        "GOOGLE_SERVICE_ACCOUNT_JSON"
     ):
-        print("Loading bywaterbot_data from URL")
-        data = get_data_from_url(
-            os.environ["BYWATER_BOT_DATA_URL"],
-            os.environ["BYWATER_BOT_GITHUB_TOKEN"],
-        )
+        print("Loading bywaterbot_data from Google Sheet")
+        data = get_data_from_sheet(os.environ["BYWATER_BOT_SHEET_ID"])
         if data:
-            print("Successfully loaded bywaterbot_data from URL")
-            source = "URL"
+            print("Successfully loaded bywaterbot_data from Google Sheet")
+            source = "Google Sheet"
 
     # Fall back to environment variable
     if not data and os.environ.get("BYWATER_BOT_DATA"):
@@ -60,105 +59,97 @@ def load_bywaterbot_data():
         raise Exception("Failed to load bywaterbot_data from any source")
 
 
-def get_data_from_url(url, token):
-    """Fetch JSON data from a URL.
+def _sheet_session():
+    """Return a requests session authorized as the bot's Google service account."""
+    creds = service_account.Credentials.from_service_account_info(
+        json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_JSON"]),
+        scopes=["https://www.googleapis.com/auth/spreadsheets"],
+    )
+    return AuthorizedSession(creds)
 
-    Attempts to retrieve data from the given URL and parse it as JSON.
-    Useful for loading dynamic configuration from a remote source.
-    Automatically converts GitHub blob URLs to raw URLs.
+
+def _sheet_users(rows):
+    """Turn the 'users' tab ( name, sms, slack_id ) into the bywaterbot_data users map.
+
+    Row 1 is the header. Also returns each name's sheet row number so a write
+    can put every entry back on the row it came from.
+    """
+    users = {}
+    row_numbers = {}
+    for row_number, row in enumerate(rows[1:], start=2):
+        name, sms, slack_id = (list(row) + ["", "", ""])[:3]
+        name = name.strip()
+        if not name:
+            continue
+
+        info = {}
+        if sms.strip():
+            info["sms"] = sms.strip()
+        if slack_id.strip():
+            info["slack_id"] = slack_id.strip()
+        users[name] = info
+        row_numbers[name] = row_number
+    return users, row_numbers
+
+
+def get_data_from_sheet(sheet_id):
+    """Fetch bywaterbot_data from the tabs of the Google Sheet.
 
     Args:
-        url: The URL to fetch data from.
-        token: GitHub personal access token for authentication.
+        sheet_id: The spreadsheet id from the sheet's URL.
 
     Returns:
-        The parsed JSON data (dict or list) if successful, otherwise None.
+        The bywaterbot_data dict if successful, otherwise None.
     """
     try:
-        # Convert GitHub blob/edit URL to API URL for reliable private access
-        # Matches: github.com/owner/repo/blob/branch/path/to/file
-        github_pattern = re.compile(
-            r"github\.com/([^/]+)/([^/]+)/(?:blob|edit)/([^/]+)/(.+)"
-        )
-        match = github_pattern.search(url)
-
-        if match:
-            owner, repo, branch, path = match.groups()
-            # Construct API URL: https://api.github.com/repos/OWNER/REPO/contents/PATH?ref=BRANCH
-            url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}?ref={branch}"
-
-        response = requests.get(
-            url,
-            headers={
-                "Authorization": f"Bearer {token}",
-                "Accept": "application/vnd.github.v3.raw",
-            },
+        response = _sheet_session().get(
+            f"{SHEETS_API_URL}/{sheet_id}/values:batchGet",
+            params={"ranges": ["users"]},
             timeout=10,
         )
         response.raise_for_status()
-        return response.json()
+        (users_tab,) = response.json()["valueRanges"]
+
+        users, _ = _sheet_users(users_tab.get("values", []))
+        return {"users": users}
     except Exception as e:
-        print(f"Error fetching data from URL {url}: {e}")
+        print(f"Error fetching data from Google Sheet {sheet_id}: {e}")
         return None
-
-
-def _parse_github_repo_url(url):
-    """Parse a github.com blob/edit URL into (owner, repo, branch, path).
-
-    Returns a 4-tuple, or None if the URL isn't a recognizable GitHub file URL.
-    """
-    match = re.search(r"github\.com/([^/]+)/([^/]+)/(?:blob|edit)/([^/]+)/(.+)", url)
-    return match.groups() if match else None
 
 
 def read_bywaterbot_data_for_update():
     """Read the canonical bywaterbot_data plus a context for writing it back.
 
-    Prefers the private GitHub repo ( the live source ), falling back to the
-    local data.json. Uses the GitHub contents API ( not the raw view ) so we get
-    the file's sha, which is required to commit an update.
+    Prefers the Google Sheet ( the live source ), falling back to the local
+    data.json. From the sheet only the 'users' tab is read, since that's all
+    the self-service commands change.
 
     Returns ( data, context ) where context is opaque and passed straight to
     write_bywaterbot_data(), or ( None, None ) on failure.
     """
-    url = os.environ.get("BYWATER_BOT_DATA_URL")
-    token = os.environ.get("BYWATER_BOT_GITHUB_TOKEN")
+    sheet_id = os.environ.get("BYWATER_BOT_SHEET_ID")
 
-    if url and token:
-        coords = _parse_github_repo_url(url)
-        if not coords:
-            print(f"Could not parse BYWATER_BOT_DATA_URL for update: {url}")
-            return None, None
-        owner, repo, branch, path = coords
+    if sheet_id and os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON"):
         try:
-            resp = requests.get(
-                f"https://api.github.com/repos/{owner}/{repo}/contents/{path}",
-                headers={
-                    "Authorization": f"Bearer {token}",
-                    "Accept": "application/vnd.github+json",
-                },
-                params={"ref": branch},
-                timeout=10,
+            resp = _sheet_session().get(
+                f"{SHEETS_API_URL}/{sheet_id}/values/users", timeout=10
             )
             resp.raise_for_status()
-            payload = resp.json()
-            content = base64.b64decode(payload["content"]).decode("utf-8")
-            data = json.loads(content)
+            rows = resp.json().get("values", [])
+            users, row_numbers = _sheet_users(rows)
             context = {
-                "source": "github",
-                "owner": owner,
-                "repo": repo,
-                "branch": branch,
-                "path": path,
-                "sha": payload["sha"],
-                "token": token,
+                "source": "sheet",
+                "sheet_id": sheet_id,
+                "row_numbers": row_numbers,
+                # New names go after the last row that has anything in it
+                "next_row": len(rows) + 1,
             }
-            return data, context
+            return {"users": users}, context
         except Exception as e:
-            print(f"Error reading bywaterbot_data from GitHub for update: {e}")
+            print(f"Error reading bywaterbot_data from Google Sheet for update: {e}")
             return None, None
 
-    # Local fallback ( dev / when no repo is configured )
+    # Local fallback ( dev / when no sheet is configured )
     if os.path.exists("data.json"):
         try:
             with open("data.json") as f:
@@ -171,39 +162,44 @@ def read_bywaterbot_data_for_update():
     return None, None
 
 
-def write_bywaterbot_data(data, context, commit_message):
+def write_bywaterbot_data(data, context, change_description):
     """Persist bywaterbot_data back to its source. Returns True on success.
 
-    For the GitHub source this commits the whole file ( which also holds the
-    bot's secrets ) via the contents API, so the data is never logged here.
+    For the Google Sheet this writes each user back to the row it was read
+    from and appends new names, so rows never move and any extra columns
+    people keep next to them stay lined up. The sheet's version history is
+    the record of changes, so change_description is only logged.
     """
-    serialized = json.dumps(data, indent=4) + "\n"
+    if context["source"] == "sheet":
+        next_row = context["next_row"]
+        updates = []
+        for name, info in data["users"].items():
+            row_number = context["row_numbers"].get(name)
+            if row_number is None:
+                row_number = next_row
+                next_row += 1
+            updates.append(
+                {
+                    "range": f"users!A{row_number}:C{row_number}",
+                    "values": [[name, info.get("sms", ""), info.get("slack_id", "")]],
+                }
+            )
 
-    if context["source"] == "github":
         try:
-            resp = requests.put(
-                f"https://api.github.com/repos/{context['owner']}/{context['repo']}"
-                f"/contents/{context['path']}",
-                headers={
-                    "Authorization": f"Bearer {context['token']}",
-                    "Accept": "application/vnd.github+json",
-                },
-                json={
-                    "message": commit_message,
-                    "content": base64.b64encode(serialized.encode("utf-8")).decode(
-                        "ascii"
-                    ),
-                    "sha": context["sha"],
-                    "branch": context["branch"],
-                },
+            resp = _sheet_session().post(
+                f"{SHEETS_API_URL}/{context['sheet_id']}/values:batchUpdate",
+                # RAW keeps +1... phone numbers as text instead of parsing them
+                json={"valueInputOption": "RAW", "data": updates},
                 timeout=10,
             )
             resp.raise_for_status()
+            print(f"Wrote bywaterbot_data to Google Sheet: {change_description}")
             return True
         except Exception as e:
-            print(f"Error writing bywaterbot_data to GitHub: {e}")
+            print(f"Error writing bywaterbot_data to Google Sheet: {e}")
             return False
 
+    serialized = json.dumps(data, indent=4) + "\n"
     try:
         with open(context["path"], "w") as f:
             f.write(serialized)

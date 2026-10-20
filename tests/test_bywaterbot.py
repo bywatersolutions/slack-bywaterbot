@@ -14,7 +14,7 @@ import pytest
 from bot_functions import (
     get_putdowns,
     get_quote,
-    get_data_from_url,
+    get_data_from_sheet,
     get_devops_fire_duty_asignee,
     get_channel_id_by_name,
     get_name_to_id_mapping,
@@ -95,39 +95,50 @@ class TestGetQuote:
         assert result == "Just a normal quote"
 
 
-class TestGetDataFromUrl:
-    @patch("bot_functions.requests.get")
-    def test_fetches_json(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"key": "value"}
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
+def _sheet_response(payload):
+    response = MagicMock()
+    response.json.return_value = payload
+    response.raise_for_status.return_value = None
+    return response
 
-        result = get_data_from_url("https://example.com/data.json", "token123")
-        assert result == {"key": "value"}
-        mock_get.assert_called_once()
 
-    @patch("bot_functions.requests.get")
-    def test_github_blob_url_converted(self, mock_get):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"data": True}
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-
-        get_data_from_url(
-            "https://github.com/owner/repo/blob/main/path/to/file.json",
-            "token123",
+class TestGetDataFromSheet:
+    @patch("bot_functions._sheet_session")
+    def test_parses_users_tab(self, mock_session):
+        mock_session.return_value.get.return_value = _sheet_response(
+            {
+                "valueRanges": [
+                    {
+                        "values": [
+                            ["name", "sms", "slack_id"],
+                            ["Kyle", "+15551234567", "U1"],
+                            [],
+                            ["Eric", " +15557654321 "],
+                            ["", "+15550000000"],
+                            ["Laura O"],
+                        ]
+                    }
+                ]
+            }
         )
-        called_url = mock_get.call_args[0][0]
-        assert "api.github.com" in called_url
-        assert "contents/path/to/file.json" in called_url
-        assert "ref=main" in called_url
 
-    @patch("bot_functions.requests.get")
-    def test_returns_none_on_error(self, mock_get):
-        mock_get.side_effect = Exception("Network error")
-        result = get_data_from_url("https://example.com/data.json", "token123")
-        assert result is None
+        result = get_data_from_sheet("sheet123")
+
+        assert result == {
+            "users": {
+                "Kyle": {"sms": "+15551234567", "slack_id": "U1"},
+                "Eric": {"sms": "+15557654321"},
+                "Laura O": {},
+            }
+        }
+        called_url = mock_session.return_value.get.call_args[0][0]
+        assert called_url.endswith("/sheet123/values:batchGet")
+        assert mock_session.return_value.get.call_args[1]["timeout"] == 10
+
+    @patch("bot_functions._sheet_session")
+    def test_returns_none_on_error(self, mock_session):
+        mock_session.return_value.get.side_effect = Exception("Network error")
+        assert get_data_from_sheet("sheet123") is None
 
 
 class TestGetDevopsFireDutyAssignee:
@@ -273,6 +284,16 @@ class TestLoadBywaterbotData:
     def test_raises_when_no_source(self, mock_exists):
         with pytest.raises(Exception, match="Failed to load"):
             load_bywaterbot_data()
+
+    @patch.dict(
+        os.environ,
+        {"BYWATER_BOT_SHEET_ID": "sheet123", "GOOGLE_SERVICE_ACCOUNT_JSON": "{}"},
+        clear=True,
+    )
+    @patch("bot_functions.get_data_from_sheet", return_value={"users": {}})
+    def test_loads_from_sheet(self, mock_sheet):
+        assert load_bywaterbot_data() == {"users": {}}
+        mock_sheet.assert_called_once_with("sheet123")
 
     @patch.dict(
         os.environ,
@@ -1262,61 +1283,68 @@ import bot_functions
 
 
 class TestDataPersistence:
-    def test_parse_github_repo_url(self):
-        coords = bot_functions._parse_github_repo_url(
-            "https://github.com/bywatersolutions/secret-repo/blob/main/data.json"
-        )
-        assert coords == ("bywatersolutions", "secret-repo", "main", "data.json")
-
-    def test_parse_github_repo_url_invalid(self):
-        assert bot_functions._parse_github_repo_url("https://example.com/x") is None
-
     @patch.dict(
         os.environ,
-        {
-            "BYWATER_BOT_DATA_URL": "https://github.com/o/r/blob/main/data.json",
-            "BYWATER_BOT_GITHUB_TOKEN": "tok",
-        },
+        {"BYWATER_BOT_SHEET_ID": "sheet123", "GOOGLE_SERVICE_ACCOUNT_JSON": "{}"},
         clear=True,
     )
-    @patch("bot_functions.requests.get")
-    def test_read_for_update_github(self, mock_get):
-        import base64
-
-        content = base64.b64encode(
-            json.dumps({"users": {"Eric": {"sms": "+1"}}}).encode()
-        ).decode()
-        mock_get.return_value = MagicMock(status_code=200)
-        mock_get.return_value.json.return_value = {"sha": "abc123", "content": content}
+    @patch("bot_functions._sheet_session")
+    def test_read_for_update_sheet(self, mock_session):
+        mock_session.return_value.get.return_value = _sheet_response(
+            {
+                "values": [
+                    ["name", "sms", "slack_id"],
+                    ["Kyle", "+15551234567"],
+                    [],
+                    ["Eric", "+1", "U2"],
+                ]
+            }
+        )
 
         data, ctx = bot_functions.read_bywaterbot_data_for_update()
-        assert data["users"]["Eric"]["sms"] == "+1"
-        assert ctx["source"] == "github"
-        assert ctx["sha"] == "abc123"
-        assert ctx["owner"] == "o" and ctx["repo"] == "r" and ctx["branch"] == "main"
+        assert data["users"]["Eric"] == {"sms": "+1", "slack_id": "U2"}
+        assert ctx["source"] == "sheet"
+        assert ctx["sheet_id"] == "sheet123"
+        assert ctx["row_numbers"] == {"Kyle": 2, "Eric": 4}
+        assert ctx["next_row"] == 5
 
-    @patch("bot_functions.requests.put")
-    def test_write_github_commits_with_sha(self, mock_put):
-        mock_put.return_value = MagicMock(status_code=200)
+    @patch("bot_functions._sheet_session")
+    def test_write_sheet_keeps_rows_and_appends_new_names(self, mock_session):
+        mock_session.return_value.post.return_value = _sheet_response({})
         ctx = {
-            "source": "github",
-            "owner": "o",
-            "repo": "r",
-            "branch": "main",
-            "path": "data.json",
-            "sha": "abc123",
-            "token": "tok",
+            "source": "sheet",
+            "sheet_id": "sheet123",
+            "row_numbers": {"Kyle": 2, "Eric": 4},
+            "next_row": 5,
         }
-        assert bot_functions.write_bywaterbot_data({"users": {}}, ctx, "msg") is True
-        body = mock_put.call_args[1]["json"]
-        assert body["sha"] == "abc123"
-        assert body["branch"] == "main"
-        assert body["message"] == "msg"
-        assert "content" in body
+        data = {
+            "users": {
+                "Kyle": {"sms": "+15551234567"},
+                "Eric": {"sms": "+1", "slack_id": "U2"},
+                "Laura O": {"slack_id": "U3"},
+            }
+        }
+
+        assert bot_functions.write_bywaterbot_data(data, ctx, "msg") is True
+
+        called_url = mock_session.return_value.post.call_args[0][0]
+        assert called_url.endswith("/sheet123/values:batchUpdate")
+        body = mock_session.return_value.post.call_args[1]["json"]
+        assert body["valueInputOption"] == "RAW"
+        assert body["data"] == [
+            {"range": "users!A2:C2", "values": [["Kyle", "+15551234567", ""]]},
+            {"range": "users!A4:C4", "values": [["Eric", "+1", "U2"]]},
+            {"range": "users!A5:C5", "values": [["Laura O", "", "U3"]]},
+        ]
+
+    @patch("bot_functions._sheet_session")
+    def test_write_sheet_failure(self, mock_session):
+        mock_session.return_value.post.side_effect = Exception("boom")
+        ctx = {"source": "sheet", "sheet_id": "s", "row_numbers": {}, "next_row": 2}
+        assert bot_functions.write_bywaterbot_data({"users": {}}, ctx, "msg") is False
 
     def test_local_read_write_roundtrip(self, tmp_path, monkeypatch):
-        monkeypatch.delenv("BYWATER_BOT_DATA_URL", raising=False)
-        monkeypatch.delenv("BYWATER_BOT_GITHUB_TOKEN", raising=False)
+        monkeypatch.delenv("BYWATER_BOT_SHEET_ID", raising=False)
         monkeypatch.chdir(tmp_path)
         (tmp_path / "data.json").write_text(json.dumps({"users": {"Kyle": {}}}))
 

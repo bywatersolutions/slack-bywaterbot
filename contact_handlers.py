@@ -1,13 +1,13 @@
 """
 Contact Handlers Module
 
-Lets staff manage their own entry in bywaterbot_data ( data.json ) from a DM:
+Lets staff manage their own entry in bywaterbot_data ( the sheet's 'users' tab ) from a DM:
 - claim <name>          link your Slack account to your duty-calendar name
 - set my sms <number>   set the mobile number used for your duty alerts
 - my info               show the name and ( masked ) number on file for you
 
 Updates are self-service only ( you can edit just your own entry, matched by
-your Slack user id ) and are committed back to the canonical source via
+your Slack user id ) and are written back to the canonical source via
 bot_functions.write_bywaterbot_data so they survive the hourly refresh.
 """
 
@@ -109,7 +109,7 @@ def register_contact_handlers(app):
         if write_bywaterbot_data(
             data, ctx, f"Claim contact entry {target} via ByWaterBot"
         ):
-            config.bywaterbot_data = data
+            config.bywaterbot_data["users"] = data["users"]
             msg = f"You're now linked to *{target}*."
             if not users[target].get("sms"):
                 msg += " Set your number with `set my sms <number>`."
@@ -147,7 +147,7 @@ def register_contact_handlers(app):
 
         users[name]["sms"] = number
         if write_bywaterbot_data(data, ctx, f"Update SMS for {name} via ByWaterBot"):
-            config.bywaterbot_data = data
+            config.bywaterbot_data["users"] = data["users"]
             say(f"Done! I'll use {_mask_phone(number)} for *{name}*.")
         else:
             say("I couldn't save that just now — please try again.")
