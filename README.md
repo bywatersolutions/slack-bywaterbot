@@ -105,7 +105,7 @@ This project uses a number of environment variables to function:
 * TWILIO_PHONE - Outgoing Twilio phone number ( e.g. +11234567890 )
 * DEVOPS_ALERT_DM_USER - Who to nag about #devops-alerts failures ( defaults to the devops fire-duty default, "Kyle" )
 * DEVOPS_ALERT_NAG_MINUTES - Minutes between un-acknowledged DM reminders ( defaults to 15 )
-* DEVOPS_FIRE_GRACE_MINUTES - Minutes a new top-level `#devops` post has to get a :fire: reaction before it's removed ( defaults to 2 )
+* DEVOPS_FIRE_GRACE_MINUTES - Minutes a new top-level `#devops` post has to get a :fire: reaction before it's removed ( defaults to 1 )
 
 The `ticket`/`zd` lookup talks to the Zoho Desk REST API using an OAuth2
 refresh token ( server-to-server ). Create a Self Client in the

@@ -18,7 +18,7 @@ from bot_functions import get_devops_fire_duty_asignee, get_channel_id_by_name
 from message_matchers import is_not_bot_message
 
 # How long a new top-level #devops post has to get a fire reaction before it's removed.
-FIRE_GRACE_MINUTES = int(os.environ.get("DEVOPS_FIRE_GRACE_MINUTES", "2"))
+FIRE_GRACE_MINUTES = int(os.environ.get("DEVOPS_FIRE_GRACE_MINUTES", "1"))
 
 
 def register_devops_handlers(app):
@@ -282,7 +282,8 @@ def register_devops_handlers(app):
                 thread_ts=message_ts,
                 text=(
                     f":fire: <#{channel_id}> is for fires only. React to your message "
-                    f"with :fire: within {FIRE_GRACE_MINUTES} minutes or I'll remove it. "
+                    f"with :fire: within {FIRE_GRACE_MINUTES} "
+                    f"minute{'' if FIRE_GRACE_MINUTES == 1 else 's'} or I'll remove it. "
                     "Discussion belongs in the thread of a fire post."
                 ),
             )
