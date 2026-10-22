@@ -215,13 +215,24 @@ def register_devops_handlers(app):
         thread_ts = message.get("thread_ts")
         return thread_ts is None or thread_ts == message.get("ts")
 
-    def remove_if_not_fire(channel_id, message_ts, user, text):
+    def remove_if_not_fire(channel_id, message_ts, user, text, warning_ts):
         """Delete a #devops post that never got a fire reaction and DM its author."""
         try:
             response = app.client.reactions_get(channel=channel_id, timestamp=message_ts)
         except Exception as e:
             # Most likely the author already deleted it
             print(f"Error getting reactions for #devops message {message_ts}: {e}")
+            response = None
+
+        # Our warning is stale either way, and while it's in the thread, deleting the post
+        # leaves a "This message was deleted" stub in the channel, so remove it first
+        if warning_ts:
+            try:
+                app.client.chat_delete(channel=channel_id, ts=warning_ts)
+            except Exception as e:
+                print(f"Error deleting #devops fires-only warning {warning_ts}: {e}")
+
+        if response is None:
             return
 
         reactions = response.get("message", {}).get("reactions", [])
@@ -264,23 +275,25 @@ def register_devops_handlers(app):
         user = message.get("user")
         text = message.get("text", "")
 
+        warning_ts = None
         try:
-            app.client.chat_postEphemeral(
+            response = app.client.chat_postMessage(
                 channel=channel_id,
-                user=user,
+                thread_ts=message_ts,
                 text=(
                     f":fire: <#{channel_id}> is for fires only. React to your message "
                     f"with :fire: within {FIRE_GRACE_MINUTES} minutes or I'll remove it. "
                     "Discussion belongs in the thread of a fire post."
                 ),
             )
+            warning_ts = response.get("ts")
         except Exception as e:
             print(f"Error sending #devops fires-only warning: {e}")
 
         timer = threading.Timer(
             FIRE_GRACE_MINUTES * 60,
             remove_if_not_fire,
-            args=(channel_id, message_ts, user, text),
+            args=(channel_id, message_ts, user, text, warning_ts),
         )
         timer.daemon = True
         timer.start()

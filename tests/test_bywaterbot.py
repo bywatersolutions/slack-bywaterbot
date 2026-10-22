@@ -555,10 +555,13 @@ class TestDevopsHandlers:
 
     def _run_grace_check(self, app, handlers, text="anyone around?"):
         """Post a top-level #devops message, then run the check its timer would run."""
+        app.client.chat_postMessage.return_value = {"ts": "1.2"}
         with patch("devops_handlers.threading.Timer") as mock_timer:
             handlers["message"](
                 {"channel": "CDEVOPS", "user": "UPOSTER", "ts": "1.1", "text": text}
             )
+        # Forget the warning reply so tests only see what the check itself posts
+        app.client.chat_postMessage.reset_mock()
         check = mock_timer.call_args.args[1]
         check(*mock_timer.call_args.kwargs["args"])
 
@@ -661,8 +664,12 @@ class TestDevopsHandlers:
             {"channel": "CDEVOPS", "user": "UPOSTER", "ts": "1.1", "text": "hi"}
         )
 
-        app.client.chat_postEphemeral.assert_called_once()
-        assert app.client.chat_postEphemeral.call_args.kwargs["user"] == "UPOSTER"
+        # The warning is a reply in the post's thread
+        app.client.chat_postMessage.assert_called_once()
+        warning = app.client.chat_postMessage.call_args.kwargs
+        assert warning["channel"] == "CDEVOPS"
+        assert warning["thread_ts"] == "1.1"
+        assert "fires only" in warning["text"]
         assert mock_timer.call_args.args[0] == devops_handlers.FIRE_GRACE_MINUTES * 60
         mock_timer.return_value.start.assert_called_once()
 
@@ -676,6 +683,8 @@ class TestDevopsHandlers:
 
         self._run_grace_check(app, handlers)
 
+        # Only our now-stale warning goes; the fire post stays
+        app.client.chat_delete.assert_called_once_with(channel="CDEVOPS", ts="1.2")
         mock_web_client.return_value.chat_delete.assert_not_called()
         app.client.chat_postMessage.assert_not_called()
 
@@ -689,7 +698,9 @@ class TestDevopsHandlers:
 
         self._run_grace_check(app, handlers, text="anyone around?\nlunch?")
 
-        # The delete has to use the admin's user token, not the bot token
+        # The bot removes its own warning reply so no "deleted" stub is left behind
+        app.client.chat_delete.assert_called_once_with(channel="CDEVOPS", ts="1.2")
+        # The post's delete has to use the admin's user token, not the bot token
         mock_web_client.assert_called_once_with(token="xoxp-test")
         mock_web_client.return_value.chat_delete.assert_called_once_with(
             channel="CDEVOPS", ts="1.1"
@@ -721,6 +732,8 @@ class TestDevopsHandlers:
 
         self._run_grace_check(app, handlers)
 
+        # Our warning would otherwise be left orphaned in the thread
+        app.client.chat_delete.assert_called_once_with(channel="CDEVOPS", ts="1.2")
         mock_web_client.return_value.chat_delete.assert_not_called()
         app.client.chat_postMessage.assert_not_called()
 

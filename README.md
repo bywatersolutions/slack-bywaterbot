@@ -66,7 +66,7 @@ committed back to the private data repo, so they survive the hourly refresh.
 
 * **New weekend tickets** — when a new ticket posts in `#tickets`, the bot texts whoever's on weekend duty.
 * **DevOps fires** — react :fire: to a message in `#devops` and the bot texts the on-call dev/systems person.
-* **#devops is fires only** — a new top-level post in `#devops` gets an ephemeral warning, and if it doesn't have a :fire: reaction after `DEVOPS_FIRE_GRACE_MINUTES` minutes the bot deletes it and DMs the author. Discussion belongs in the thread of a fire post; thread replies and bot posts are left alone. Needs `SLACK_ADMIN_USER_TOKEN`.
+* **#devops is fires only** — a new top-level post in `#devops` gets a warning reply in its thread, and if it doesn't have a :fire: reaction after `DEVOPS_FIRE_GRACE_MINUTES` minutes the bot deletes it and DMs the author. The warning reply is removed once the time is up either way. Discussion belongs in the thread of a fire post; thread replies and bot posts are left alone. Needs `SLACK_ADMIN_USER_TOKEN`.
 * **#devops-alerts** — see [DevOps alert acknowledgements](#devops-alert-acknowledgements) below.
 
 ### DevOps alert acknowledgements

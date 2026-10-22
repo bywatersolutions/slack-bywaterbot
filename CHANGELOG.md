@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `#devops` is now fires only. A new top-level post there gets a private
-  warning, and if nobody reacts to it with :fire: within 2 minutes
+- `#devops` is now fires only. A new top-level post there gets a warning
+  reply in its thread, and if nobody reacts to it with :fire: within 2 minutes
   ( `DEVOPS_FIRE_GRACE_MINUTES` ) the bot deletes it and DMs the author a
   copy, explaining that discussion belongs in the thread of a fire post.
   Thread replies and bot posts are left alone. Deleting other people's posts
